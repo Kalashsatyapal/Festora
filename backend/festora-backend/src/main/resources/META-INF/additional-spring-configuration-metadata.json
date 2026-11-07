@@ -1,0 +1,27 @@
+{"properties": [
+  {
+    "name": "festora.jwt.secret",
+    "type": "java.lang.String",
+    "description": "A description for 'festora.jwt.secret'"
+  },
+  {
+    "name": "festora.jwt.issuer",
+    "type": "java.lang.String",
+    "description": "A description for 'festora.jwt.issuer'"
+  },
+  {
+    "name": "festora.jwt.expiration",
+    "type": "java.lang.String",
+    "description": "A description for 'festora.jwt.expiration'"
+  },
+  {
+    "name": "festora.storage.avatar-directory",
+    "type": "java.lang.String",
+    "description": "A description for 'festora.storage.avatar-directory'"
+  },
+  {
+    "name": "festora.storage.avatar-base-url",
+    "type": "java.lang.String",
+    "description": "A description for 'festora.storage.avatar-base-url'"
+  }
+]}

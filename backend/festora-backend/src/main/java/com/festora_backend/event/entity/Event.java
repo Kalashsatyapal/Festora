@@ -1,7 +1,10 @@
 package com.festora_backend.event.entity;
 
+import com.festora_backend.category.entity.Category;
 import com.festora_backend.common.enums.EventStatus;
 import com.festora_backend.user.entity.User;
+import com.festora_backend.venue.entity.Venue;
+
 import jakarta.persistence.*;
 
 import java.math.BigDecimal;
@@ -11,9 +14,9 @@ import java.time.Instant;
 @Table(
     name = "events",
     indexes = {
-        @Index(name = "idx_event_category", columnList = "category"),
-        @Index(name = "idx_event_venue", columnList = "venue_name"),
-        @Index(name = "idx_event_date_status",
+        @Index(name = "idx_event_category", columnList = "category_id"),
+        @Index(name = "idx_event_venue", columnList = "venue_id"),
+        @Index(name = "idx_event_dates_status",
                 columnList = "start_at,end_at,status"),
         @Index(name = "idx_event_organizer",
                 columnList = "organizer_id")
@@ -31,14 +34,13 @@ public class Event {
     @Column(length = 3000)
     private String description;
 
-    @Column(nullable = false, length = 100)
-    private String category;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "category_id", nullable = false)
+    private Category category;
 
-    @Column(name = "venue_name", nullable = false, length = 150)
-    private String venueName;
-
-    @Column(length = 500)
-    private String venueAddress;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "venue_id", nullable = false)
+    private Venue venue;
 
     @Column(name = "start_at", nullable = false)
     private Instant startAt;
@@ -57,11 +59,7 @@ public class Event {
     private EventStatus status;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(
-        name = "organizer_id",
-        nullable = false,
-        foreignKey = @ForeignKey(name = "fk_event_organizer")
-    )
+    @JoinColumn(name = "organizer_id", nullable = false)
     private User organizer;
 
     @Version
@@ -79,9 +77,8 @@ public class Event {
     public static Event create(
             String title,
             String description,
-            String category,
-            String venueName,
-            String venueAddress,
+            Category category,
+            Venue venue,
             Instant startAt,
             Instant endAt,
             Integer totalCapacity,
@@ -89,18 +86,81 @@ public class Event {
             User organizer
     ) {
         Event event = new Event();
-        event.title = title;
-        event.description = description;
-        event.category = category;
-        event.venueName = venueName;
-        event.venueAddress = venueAddress;
-        event.startAt = startAt;
-        event.endAt = endAt;
-        event.totalCapacity = totalCapacity;
-        event.ticketPrice = ticketPrice;
+        event.updateDetails(
+                title,
+                description,
+                category,
+                venue,
+                startAt,
+                endAt,
+                totalCapacity,
+                ticketPrice
+        );
         event.organizer = organizer;
         event.status = EventStatus.DRAFT;
         return event;
+    }
+
+    public void updateDetails(
+            String title,
+            String description,
+            Category category,
+            Venue venue,
+            Instant startAt,
+            Instant endAt,
+            Integer totalCapacity,
+            BigDecimal ticketPrice
+    ) {
+        if (title == null || title.isBlank()
+                || category == null
+                || venue == null
+                || startAt == null
+                || endAt == null
+                || !endAt.isAfter(startAt)
+                || totalCapacity == null
+                || totalCapacity <= 0
+                || ticketPrice == null
+                || ticketPrice.signum() < 0) {
+            throw new IllegalArgumentException(
+                    "Invalid event details"
+            );
+        }
+
+        if (totalCapacity > venue.getCapacity()) {
+            throw new IllegalArgumentException(
+                    "Event capacity exceeds venue capacity"
+            );
+        }
+
+        this.title = title.trim();
+        this.description = description;
+        this.category = category;
+        this.venue = venue;
+        this.startAt = startAt;
+        this.endAt = endAt;
+        this.totalCapacity = totalCapacity;
+        this.ticketPrice = ticketPrice;
+    }
+
+    public void publish() {
+        if (status != EventStatus.DRAFT) {
+            throw new IllegalStateException(
+                    "Only draft events can be published"
+            );
+        }
+
+        status = EventStatus.PUBLISHED;
+    }
+
+    public void cancel() {
+        if (status == EventStatus.COMPLETED
+                || status == EventStatus.CANCELLED) {
+            throw new IllegalStateException(
+                    "Event cannot be cancelled"
+            );
+        }
+
+        status = EventStatus.CANCELLED;
     }
 
     @PrePersist
@@ -115,77 +175,18 @@ public class Event {
         updatedAt = Instant.now();
     }
 
-    public void publish() {
-        if (status != EventStatus.DRAFT) {
-            throw new IllegalStateException(
-                    "Only draft events can be published"
-            );
-        }
-
-        status = EventStatus.PUBLISHED;
-    }
-
-    public void cancel() {
-        status = EventStatus.CANCELLED;
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public String getTitle() {
-        return title;
-    }
-
-    public String getDescription() {
-        return description;
-    }
-
-    public String getCategory() {
-        return category;
-    }
-
-    public String getVenueName() {
-        return venueName;
-    }
-
-    public String getVenueAddress() {
-        return venueAddress;
-    }
-
-    public Instant getStartAt() {
-        return startAt;
-    }
-
-    public Instant getEndAt() {
-        return endAt;
-    }
-
-    public Integer getTotalCapacity() {
-        return totalCapacity;
-    }
-
-    public BigDecimal getTicketPrice() {
-        return ticketPrice;
-    }
-
-    public EventStatus getStatus() {
-        return status;
-    }
-
-    public User getOrganizer() {
-        return organizer;
-    }
-
-    public Long getVersion() {
-        return version;
-    }
-
-    public Instant getCreatedAt() {
-        return createdAt;
-    }
-
-    public Instant getUpdatedAt() {
-        return updatedAt;
-    }
+    public Long getId() { return id; }
+    public String getTitle() { return title; }
+    public String getDescription() { return description; }
+    public Category getCategory() { return category; }
+    public Venue getVenue() { return venue; }
+    public Instant getStartAt() { return startAt; }
+    public Instant getEndAt() { return endAt; }
+    public Integer getTotalCapacity() { return totalCapacity; }
+    public BigDecimal getTicketPrice() { return ticketPrice; }
+    public EventStatus getStatus() { return status; }
+    public User getOrganizer() { return organizer; }
+    public Long getVersion() { return version; }
+    public Instant getCreatedAt() { return createdAt; }
+    public Instant getUpdatedAt() { return updatedAt; }
 }
