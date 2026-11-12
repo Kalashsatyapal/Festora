@@ -58,7 +58,11 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Excepti
 
                     .requestMatchers("/api/organizer/**")
                     .hasRole("ORGANIZER")
-
+.requestMatchers(
+        "/api-docs/**",
+        "/swagger-ui/**",
+        "/swagger-ui.html"
+).permitAll()
                     .anyRequest()
                     .authenticated())
 

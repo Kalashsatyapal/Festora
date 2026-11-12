@@ -15,68 +15,80 @@ import java.util.List;
 import java.util.Optional;
 
 public interface TicketRepository extends JpaRepository<Ticket, Long> {
-        @Lock(LockModeType.PESSIMISTIC_WRITE)
-        @Query("""
-                        SELECT t FROM Ticket t
-                        WHERE t.booking.id = :bookingId
-                        ORDER BY t.seatNumber
-                        """)
-        List<Ticket> findByBookingIdForUpdate(
-                        @Param("bookingId") Long bookingId);
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            SELECT t FROM Ticket t
+            WHERE t.booking.id = :bookingId
+            ORDER BY t.seatNumber
+            """)
+    List<Ticket> findByBookingIdForUpdate(
+            @Param("bookingId") Long bookingId);
 
-        @Modifying(flushAutomatically = true, clearAutomatically = true)
-        @Transactional
-        @Query("""
-                        UPDATE Ticket t
-                        SET t.status = com.festora_backend.common.enums.TicketStatus.AVAILABLE,
-                            t.holder = null,
-                            t.booking = null,
-                            t.reservedUntil = null,
-                            t.soldAt = null,
-                            t.version = t.version + 1
-                        WHERE t.booking.id = :bookingId
-                        AND t.status IN :statuses
-                        """)
-        int releaseTicketsForBooking(
-                        @Param("bookingId") Long bookingId,
-                        @Param("statuses") List<TicketStatus> statuses);
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Transactional
+    @Query("""
+            UPDATE Ticket t
+            SET t.status = com.festora_backend.common.enums.TicketStatus.AVAILABLE,
+                t.holder = null,
+                t.booking = null,
+                t.reservedUntil = null,
+                t.soldAt = null,
+                t.version = t.version + 1
+            WHERE t.booking.id = :bookingId
+            AND t.status IN :statuses
+            """)
+    int releaseTicketsForBooking(
+            @Param("bookingId") Long bookingId,
+            @Param("statuses") List<TicketStatus> statuses);
 
-        List<Ticket> findByEventIdAndStatus(
-                        Long eventId,
-                        TicketStatus status);
+    @Query("""
+            SELECT t FROM Ticket t
+            JOIN FETCH t.booking b
+            JOIN FETCH b.user u
+            WHERE t.event.id = :eventId
+            AND t.status = :status
+            ORDER BY t.soldAt ASC
+            """)
+    List<Ticket> findSoldTicketsWithAttendee(
+            @Param("eventId") Long eventId,
+            @Param("status") TicketStatus status);
 
-        long countByEventIdAndStatus(
-                        Long eventId,
-                        TicketStatus status);
+    List<Ticket> findByEventIdAndStatus(
+            Long eventId,
+            TicketStatus status);
 
-        @Lock(LockModeType.PESSIMISTIC_WRITE)
-        @Query("""
-                        SELECT t FROM Ticket t
-                        WHERE t.event.id = :eventId
-                        AND t.status = :status
-                        ORDER BY t.seatNumber
-                        """)
-        List<Ticket> findAvailableForUpdate(
-                        @Param("eventId") Long eventId,
-                        @Param("status") TicketStatus status,
-                        Pageable pageable);
+    long countByEventIdAndStatus(
+            Long eventId,
+            TicketStatus status);
 
-        List<Ticket> findByBookingId(Long bookingId);
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            SELECT t FROM Ticket t
+            WHERE t.event.id = :eventId
+            AND t.status = :status
+            ORDER BY t.seatNumber
+            """)
+    List<Ticket> findAvailableForUpdate(
+            @Param("eventId") Long eventId,
+            @Param("status") TicketStatus status,
+            Pageable pageable);
 
-        @Lock(LockModeType.PESSIMISTIC_WRITE)
-        @Query("""
-                        SELECT t FROM Ticket t
-                        WHERE t.id = :ticketId
-                        """)
-        Optional<Ticket> findByIdForUpdate(
-                        @Param("ticketId") Long ticketId);
+    List<Ticket> findByBookingId(Long bookingId);
 
-        @Query("""
-                        SELECT t FROM Ticket t
-                        WHERE t.status = :status
-                        AND t.reservedUntil <= :now
-                        """)
-        List<Ticket> findExpiredReservations(
-                        @Param("status") TicketStatus status,
-                        @Param("now") Instant now);
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            SELECT t FROM Ticket t
+            WHERE t.id = :ticketId
+            """)
+    Optional<Ticket> findByIdForUpdate(
+            @Param("ticketId") Long ticketId);
+
+    @Query("""
+            SELECT t FROM Ticket t
+            WHERE t.status = :status
+            AND t.reservedUntil <= :now
+            """)
+    List<Ticket> findExpiredReservations(
+            @Param("status") TicketStatus status,
+            @Param("now") Instant now);
 }
