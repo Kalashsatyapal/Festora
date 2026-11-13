@@ -58,5 +58,10 @@
     "name": "springdoc.swagger-ui.tags-sorter",
     "type": "java.lang.String",
     "description": "A description for 'springdoc.swagger-ui.tags-sorter'"
+  },
+  {
+    "name": "festora.billing.internal-api-key",
+    "type": "java.lang.String",
+    "description": "A description for 'festora.billing.internal-api-key'"
   }
 ]}
