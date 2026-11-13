@@ -34,7 +34,3 @@ build/
 
 .env
 
-BILLING_INTERNAL_API_KEY=replace-with-a-long-random-secret
-BILLING_DB_URL=jdbc:mysql://localhost:3306/festora_billing?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC
-BILLING_DB_USERNAME=root
-BILLING_DB_PASSWORD=root
