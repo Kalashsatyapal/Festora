@@ -7,13 +7,10 @@ import jakarta.persistence.*;
 import java.time.Instant;
 
 @Entity
-@Table(
-    name = "users",
-    indexes = {
+@Table(name = "users", indexes = {
         @Index(name = "idx_user_email", columnList = "email"),
         @Index(name = "idx_user_role_status", columnList = "role,status")
-    }
-)
+})
 public class User {
 
     @Id
@@ -56,8 +53,7 @@ public class User {
             String fullName,
             String email,
             String passwordHash,
-            UserRole role
-    ) {
+            UserRole role) {
         User user = new User();
         user.fullName = fullName;
         user.email = email;
@@ -85,8 +81,7 @@ public class User {
     public void activateOrganizer() {
         if (role != UserRole.ORGANIZER) {
             throw new IllegalStateException(
-                    "Only organizer accounts can be activated"
-            );
+                    "Only organizer accounts can be activated");
         }
 
         status = AccountStatus.ACTIVE;
@@ -96,16 +91,45 @@ public class User {
     public void rejectOrganizer() {
         if (role != UserRole.ORGANIZER) {
             throw new IllegalStateException(
-                    "Only organizer accounts can be rejected"
-            );
+                    "Only organizer accounts can be rejected");
         }
 
         status = AccountStatus.REJECTED;
         enabled = false;
     }
 
+    public void updatePassword(String passwordHash) {
+        this.passwordHash = passwordHash;
+    }
+
     public void updateAvatar(String avatarUrl) {
         this.avatarUrl = avatarUrl;
+    }
+
+    public void suspend() {
+        if (role == UserRole.ADMIN) {
+            throw new IllegalStateException("Admin accounts cannot be suspended");
+        }
+
+        if (status != AccountStatus.ACTIVE) {
+            throw new IllegalStateException("Only active accounts can be suspended");
+        }
+
+        status = AccountStatus.SUSPENDED;
+        enabled = false;
+    }
+
+    public void reactivate() {
+        if (role == UserRole.ADMIN) {
+            throw new IllegalStateException("Admin accounts cannot be changed");
+        }
+
+        if (status != AccountStatus.SUSPENDED) {
+            throw new IllegalStateException("Only suspended accounts can be reactivated");
+        }
+
+        status = AccountStatus.ACTIVE;
+        enabled = true;
     }
 
     public Long getId() {

@@ -53,6 +53,9 @@ public class Ticket {
     @Column(name = "sold_at")
     private Instant soldAt;
 
+    @Column(name = "used_at")
+    private Instant usedAt;
+
     @Version
     private Long version;
 
@@ -77,6 +80,20 @@ public class Ticket {
         ticket.status = TicketStatus.AVAILABLE;
 
         return ticket;
+    }
+
+    public Instant getUsedAt() {
+        return usedAt;
+    }
+
+    public void markUsed() {
+        if (status != TicketStatus.SOLD) {
+            throw new IllegalStateException(
+                    "Only sold tickets can be verified");
+        }
+
+        status = TicketStatus.USED;
+        usedAt = Instant.now();
     }
 
     @PrePersist

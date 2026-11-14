@@ -24,51 +24,63 @@ public class SecurityConfig {
                 this.jwtFilter = jwtFilter;
         }
 
-       @Bean
-public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        @Bean
+        public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
 
-    return http
-            .csrf(csrf -> csrf.disable())
-            .cors(Customizer.withDefaults())
-            .sessionManagement(session -> session
-                    .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                return http
+                                .csrf(csrf -> csrf.disable())
+                                .cors(Customizer.withDefaults())
+                                .sessionManagement(session -> session
+                                                .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
-            .authorizeHttpRequests(auth -> auth
+                                .authorizeHttpRequests(auth -> auth
 
-                    .requestMatchers(
-                            "/api/auth/register",
-                            "/api/auth/register/organizer",
-                            "/api/auth/login",
-                            "/actuator/health")
-                    .permitAll()
+                                                .requestMatchers(
+                                                                "/api/auth/register",
+                                                                "/api/auth/register/organizer",
+                                                                "/api/auth/login",
+                                                                "/api/auth/forgot-password",
+                                                                "/api/auth/reset-password",
+                                                                "/api/auth/refresh",
+                                                                "/actuator/health")
+                                                .permitAll()
 
-                    .requestMatchers(
-                            HttpMethod.GET,
-                            "/uploads/avatars/**")
-                    .permitAll()
+                                                .requestMatchers(
+                                                                "/api-docs/**",
+                                                                "/swagger-ui/**",
+                                                                "/swagger-ui.html")
+                                                .permitAll()
 
-                    .requestMatchers(
-                            HttpMethod.GET,
-                            "/api/events",
-                            "/api/events/**")
-                    .permitAll()
+                                                .requestMatchers(
+                                                                HttpMethod.GET,
+                                                                "/uploads/avatars/**")
+                                                .permitAll()
 
-                    .requestMatchers("/api/admin/**")
-                    .hasRole("ADMIN")
+                                                .requestMatchers(
+                                                                HttpMethod.GET,
+                                                                "/api/events",
+                                                                "/api/events/**")
+                                                .permitAll()
 
-                    .requestMatchers("/api/organizer/**")
-                    .hasRole("ORGANIZER")
-.requestMatchers(
-        "/api-docs/**",
-        "/swagger-ui/**",
-        "/swagger-ui.html"
-).permitAll()
-                    .anyRequest()
-                    .authenticated())
+                                                .requestMatchers(
+                                                                HttpMethod.GET,
+                                                                "/api/categories",
+                                                                "/api/categories/**")
+                                                .permitAll()
 
-            .addFilterBefore(
-                    jwtFilter,
-                    UsernamePasswordAuthenticationFilter.class)
+                                                .requestMatchers("/api/admin/**")
+                                                .hasRole("ADMIN")
 
-            .build();
-}}
+                                                .requestMatchers("/api/organizer/**")
+                                                .hasRole("ORGANIZER")
+
+                                                .anyRequest()
+                                                .authenticated())
+
+                                .addFilterBefore(
+                                                jwtFilter,
+                                                UsernamePasswordAuthenticationFilter.class)
+
+                                .build();
+        }
+}

@@ -63,5 +63,20 @@
     "name": "festora.billing.internal-api-key",
     "type": "java.lang.String",
     "description": "A description for 'festora.billing.internal-api-key'"
+  },
+  {
+    "name": "festora.frontend.url",
+    "type": "java.lang.String",
+    "description": "A description for 'festora.frontend.url'"
+  },
+  {
+    "name": "festora.password-reset.expiration-minutes",
+    "type": "java.lang.String",
+    "description": "A description for 'festora.password-reset.expiration-minutes'"
+  },
+  {
+    "name": "festora.jwt.refresh-expiration-days",
+    "type": "java.lang.String",
+    "description": "A description for 'festora.jwt.refresh-expiration-days'"
   }
 ]}

@@ -23,17 +23,20 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
+    private final RefreshTokenService refreshTokenService;
 
     public AuthService(
             UserRepository userRepository,
             PasswordEncoder passwordEncoder,
             AuthenticationManager authenticationManager,
-            JwtService jwtService
+            JwtService jwtService,
+            RefreshTokenService refreshTokenService
     ) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.authenticationManager = authenticationManager;
         this.jwtService = jwtService;
+        this.refreshTokenService = refreshTokenService;
     }
 
     @Transactional
@@ -74,8 +77,8 @@ public class AuthService {
         );
     }
 
+    @Transactional
     public AuthResponse login(LoginRequest request) {
-
         Authentication authentication =
                 authenticationManager.authenticate(
                         new UsernamePasswordAuthenticationToken(
@@ -91,19 +94,37 @@ public class AuthService {
 
         if (!user.isEnabled()
                 || user.getStatus() != AccountStatus.ACTIVE) {
-            throw new BusinessException(
-                    "Account is not active"
-            );
+            throw new BusinessException("Account is not active");
         }
 
-        String token = jwtService.generateToken(user);
+        RefreshTokenResult refresh = refreshTokenService.create(user);
+
+        return buildAuthResponse(user, refresh);
+    }
+
+    @Transactional
+    public AuthResponse refresh(String rawRefreshToken) {
+        RefreshTokenResult refresh =
+                refreshTokenService.rotate(rawRefreshToken);
+
+        return buildAuthResponse(
+                refresh.user(),
+                refresh
+        );
+    }
+
+    private AuthResponse buildAuthResponse(
+            User user,
+            RefreshTokenResult refresh
+    ) {
+        Instant now = Instant.now();
 
         return new AuthResponse(
-                token,
+                jwtService.generateToken(user),
                 "Bearer",
-                Instant.now().plusMillis(
-                        jwtService.getExpirationMillis()
-                ),
+                now.plusMillis(jwtService.getExpirationMillis()),
+                refresh.refreshToken(),
+                refresh.refreshExpiresAt(),
                 user.getId(),
                 user.getFullName(),
                 user.getEmail(),

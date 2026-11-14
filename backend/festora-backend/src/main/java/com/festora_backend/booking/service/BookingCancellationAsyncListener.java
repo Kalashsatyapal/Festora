@@ -6,6 +6,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
 @Component
@@ -16,16 +17,27 @@ public class BookingCancellationAsyncListener {
                     BookingCancellationAsyncListener.class
             );
 
-    @Async
-    @TransactionalEventListener
-    public void handleCancellation(
-            BookingCancelledEvent event
+    private final BookingEmailService bookingEmailService;
+
+    public BookingCancellationAsyncListener(
+            BookingEmailService bookingEmailService
     ) {
-        log.info(
-                "Booking cancellation processed asynchronously. Reference={}, User={}, Event={}",
-                event.bookingReference(),
-                event.userId(),
-                event.eventId()
-        );
+        this.bookingEmailService = bookingEmailService;
+    }
+
+    @Async
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handleCancellation(BookingCancelledEvent event) {
+        try {
+            bookingEmailService.sendBookingCancellation(
+                    event.bookingReference()
+            );
+        } catch (Exception exception) {
+            log.error(
+                    "Failed to send cancellation email for booking {}",
+                    event.bookingReference(),
+                    exception
+            );
+        }
     }
 }

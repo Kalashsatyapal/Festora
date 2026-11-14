@@ -1,3 +1,4 @@
+
 package com.festora_backend.booking.service;
 
 import com.festora_backend.booking.dto.BookingVoucherResponse;
@@ -10,6 +11,7 @@ import com.festora_backend.common.exception.BusinessException;
 import com.festora_backend.common.exception.ResourceNotFoundException;
 import com.festora_backend.ticket.entity.Ticket;
 import com.festora_backend.ticket.repository.TicketRepository;
+import com.festora_backend.ticket.service.TicketQrService;
 
 import org.springframework.context.MessageSource;
 import org.springframework.stereotype.Service;
@@ -28,15 +30,18 @@ public class BookingVoucherService {
     private final BookingRepository bookingRepository;
     private final TicketRepository ticketRepository;
     private final MessageSource messageSource;
+    private final TicketQrService ticketQrService;
 
     public BookingVoucherService(
             BookingRepository bookingRepository,
             TicketRepository ticketRepository,
-            MessageSource messageSource
+            MessageSource messageSource,
+            TicketQrService ticketQrService
     ) {
         this.bookingRepository = bookingRepository;
         this.ticketRepository = ticketRepository;
         this.messageSource = messageSource;
+        this.ticketQrService = ticketQrService;
     }
 
     public BookingVoucherResponse generateVoucher(
@@ -44,7 +49,6 @@ public class BookingVoucherService {
             Long userId,
             Locale locale
     ) {
-
         Booking booking = bookingRepository
                 .findByBookingReference(bookingReference)
                 .orElseThrow(() ->
@@ -73,8 +77,9 @@ public class BookingVoucherService {
                 .toList();
 
         if (tickets.isEmpty()
-                || tickets.stream().anyMatch(
-                        ticket -> ticket.getStatus() != TicketStatus.SOLD
+                || tickets.stream().anyMatch(ticket ->
+                        ticket.getStatus() != TicketStatus.SOLD
+                        && ticket.getStatus() != TicketStatus.USED
                 )) {
             throw new BusinessException(
                     "Confirmed booking ticket data is incomplete"
@@ -83,11 +88,19 @@ public class BookingVoucherService {
 
         List<TicketVoucherResponse> ticketResponses =
                 tickets.stream()
-                        .map(ticket -> new TicketVoucherResponse(
-                                ticket.getTicketNumber().toString(),
-                                ticket.getSeatNumber(),
-                                ticket.getStatus().name()
-                        ))
+                        .map(ticket -> {
+                            String ticketNumber =
+                                    ticket.getTicketNumber().toString();
+
+                            return new TicketVoucherResponse(
+                                    ticketNumber,
+                                    ticket.getSeatNumber(),
+                                    ticket.getStatus().name(),
+                                    ticketQrService.generateDataUri(
+                                            ticketNumber
+                                    )
+                            );
+                        })
                         .toList();
 
         return new BookingVoucherResponse(
