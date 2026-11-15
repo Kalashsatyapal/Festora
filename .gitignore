@@ -1,4 +1,4 @@
-/.metadata/
+.metadata/
 **/.metadata/
 **/target/
 **/node_modules/
@@ -6,3 +6,8 @@
 **/.env
 **/.env.*
 !**/.env.example
+**/logs/
+**/uploads/
+.vscode/
+**/.DS_Store
+Thumbs.db

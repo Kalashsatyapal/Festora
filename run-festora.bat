@@ -1,4 +1,3 @@
-
 @echo off
 title Festora Application Launcher
 
@@ -42,13 +41,10 @@ if not exist "%ROOT%\frontend\package.json" (
     exit /b 1
 )
 
-start "Festora Billing" cmd /k "cd /d %ROOT%\backend\billing-service && mvn spring-boot:run"
-
-start "Festora Backend" cmd /k "cd /d %ROOT%\backend\festora-backend && mvn spring-boot:run"
-
-start "Festora Gateway" cmd /k "cd /d %ROOT%\backend\festora-gateway && mvn spring-boot:run"
-
-start "Festora Frontend" cmd /k "cd /d %ROOT%\frontend && npm run dev"
+start "Festora Billing" /D "%ROOT%\backend\billing-service" cmd /k "mvn spring-boot:run"
+start "Festora Backend" /D "%ROOT%\backend\festora-backend" cmd /k "mvn spring-boot:run"
+start "Festora Gateway" /D "%ROOT%\backend\festora-gateway" cmd /k "mvn spring-boot:run"
+start "Festora Frontend" /D "%ROOT%\frontend" cmd /k "npm run dev"
 
 echo.
 echo Festora startup commands launched.
