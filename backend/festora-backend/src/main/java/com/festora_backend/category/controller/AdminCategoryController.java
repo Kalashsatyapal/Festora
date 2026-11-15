@@ -1,5 +1,5 @@
 package com.festora_backend.category.controller;
-
+import com.festora_backend.category.entity.Category;
 import com.festora_backend.category.dto.CategoryRequest;
 import com.festora_backend.category.dto.CategoryResponse;
 import com.festora_backend.category.dto.CategoryStatusRequest;
@@ -52,17 +52,14 @@ public class AdminCategoryController {
         return ResponseEntity.ok(
                 ApiResponse.success(
                         "Categories retrieved successfully",
-                        categoryService.getCategories(
-                                search,
-                                PageRequest.of(
-                                        page,
-                                        size,
-                                        Sort.by(
-                                                Sort.Direction.DESC,
-                                                "createdAt"
-                                        )
-                                )
-                        )
+                       categoryService.getCategories(
+        search,
+        PageRequest.of(
+                page,
+                size,
+                Sort.sort(Category.class).by(Category::getCreatedAt).descending()
+        )
+)
                 )
         );
     }

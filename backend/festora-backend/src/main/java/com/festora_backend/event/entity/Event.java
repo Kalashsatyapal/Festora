@@ -9,6 +9,8 @@ import jakarta.persistence.*;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(
@@ -61,6 +63,15 @@ public class Event {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "organizer_id", nullable = false)
     private User organizer;
+
+    @ElementCollection
+    @CollectionTable(
+            name = "event_images",
+            joinColumns = @JoinColumn(name = "event_id")
+    )
+    @Column(name = "image_url", nullable = false, length = 500)
+    @OrderColumn(name = "display_order")
+    private List<String> imageUrls = new ArrayList<>();
 
     @Version
     private Long version;
@@ -163,6 +174,26 @@ public class Event {
         status = EventStatus.CANCELLED;
     }
 
+    public void addImageUrls(List<String> imageUrls) {
+        if (imageUrls == null || imageUrls.isEmpty()) {
+            throw new IllegalArgumentException("At least one image is required");
+        }
+
+        if (this.imageUrls.size() + imageUrls.size() > 10) {
+            throw new IllegalArgumentException("An event can have at most 10 images");
+        }
+
+        this.imageUrls.addAll(imageUrls);
+    }
+
+    public String removeImage(int index) {
+        if (index < 0 || index >= imageUrls.size()) {
+            throw new IllegalArgumentException("Invalid image index");
+        }
+
+        return imageUrls.remove(index);
+    }
+
     @PrePersist
     protected void onCreate() {
         Instant now = Instant.now();
@@ -186,6 +217,7 @@ public class Event {
     public BigDecimal getTicketPrice() { return ticketPrice; }
     public EventStatus getStatus() { return status; }
     public User getOrganizer() { return organizer; }
+    public List<String> getImageUrls() { return List.copyOf(imageUrls); }
     public Long getVersion() { return version; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }

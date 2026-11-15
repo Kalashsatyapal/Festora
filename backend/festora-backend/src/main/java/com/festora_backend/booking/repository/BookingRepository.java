@@ -11,72 +11,104 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 public interface BookingRepository
-        extends JpaRepository<Booking, Long> {
+                extends JpaRepository<Booking, Long> {
 
-    Optional<Booking> findByBookingReference(
-            java.util.UUID bookingReference);
+        Optional<Booking> findByBookingReference(
+                        java.util.UUID bookingReference);
 
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("""
-            SELECT b FROM Booking b
-            WHERE b.bookingReference = :reference
-            """)
-    Optional<Booking> findByBookingReferenceForUpdate(
-            @Param("reference") UUID reference);
+        @Lock(LockModeType.PESSIMISTIC_WRITE)
+        @Query("""
+                        SELECT b FROM Booking b
+                        WHERE b.bookingReference = :reference
+                        """)
+        Optional<Booking> findByBookingReferenceForUpdate(
+                        @Param("reference") UUID reference);
 
-    @Query("""
-            SELECT
-                COALESCE(SUM(b.totalAmount), 0) AS totalRevenue,
-                COUNT(b.id) AS confirmedBookings,
-                COALESCE(SUM(b.quantity), 0) AS ticketsSold
-            FROM Booking b
-            WHERE b.event.id = :eventId
-            AND b.event.organizer.id = :organizerId
-            AND b.status = :status
-            """)
-    OrganizerRevenueProjection getOrganizerEventRevenue(
-            @Param("eventId") Long eventId,
-            @Param("organizerId") Long organizerId,
-            @Param("status") BookingStatus status);
+        @Query("""
+                        SELECT
+                            COALESCE(SUM(b.totalAmount), 0) AS totalRevenue,
+                            COUNT(b.id) AS confirmedBookings,
+                            COALESCE(SUM(b.quantity), 0) AS ticketsSold
+                        FROM Booking b
+                        WHERE b.event.id = :eventId
+                        AND b.event.organizer.id = :organizerId
+                        AND b.status = :status
+                        """)
+        OrganizerRevenueProjection getOrganizerEventRevenue(
+                        @Param("eventId") Long eventId,
+                        @Param("organizerId") Long organizerId,
+                        @Param("status") BookingStatus status);
 
-    List<Booking> findByUserId(Long userId);
+        List<Booking> findByUserId(Long userId);
 
-    List<Booking> findByEventId(Long eventId);
+        List<Booking> findByEventId(Long eventId);
 
-    List<Booking> findByStatusAndExpiresAtBefore(
-            BookingStatus status,
-            Instant expiryTime);
+        List<Booking> findByStatusAndExpiresAtBefore(
+                        BookingStatus status,
+                        Instant expiryTime);
 
-    long countByStatus(BookingStatus status);
+        long countByStatus(BookingStatus status);
 
-    @org.springframework.data.jpa.repository.Modifying
-@org.springframework.data.jpa.repository.Query("""
-    UPDATE Booking b
-    SET b.status = :newStatus
-    WHERE b.id = :bookingId
-    AND b.status = :currentStatus
-    """)
-int updateBookingStatus(
-        @org.springframework.data.repository.query.Param("bookingId") Long bookingId,
-        @org.springframework.data.repository.query.Param("currentStatus") BookingStatus currentStatus,
-        @org.springframework.data.repository.query.Param("newStatus") BookingStatus newStatus
-);
-    @Query("""
-            SELECT COALESCE(SUM(b.quantity), 0)
-            FROM Booking b
-            WHERE b.status = :status
-            """)
-    Long sumQuantityByStatus(
-            @Param("status") BookingStatus status);
+        @org.springframework.data.jpa.repository.Modifying
+        @org.springframework.data.jpa.repository.Query("""
+                        UPDATE Booking b
+                        SET b.status = :newStatus
+                        WHERE b.id = :bookingId
+                        AND b.status = :currentStatus
+                        """)
+        int updateBookingStatus(
+                        @org.springframework.data.repository.query.Param("bookingId") Long bookingId,
+                        @org.springframework.data.repository.query.Param("currentStatus") BookingStatus currentStatus,
+                        @org.springframework.data.repository.query.Param("newStatus") BookingStatus newStatus);
 
-    @Query("""
-            SELECT COALESCE(SUM(b.totalAmount), 0)
-            FROM Booking b
-            WHERE b.status = :status
-            """)
-    java.math.BigDecimal sumTotalAmountByStatus(
-            @Param("status") BookingStatus status);
+        @Query(value = """
+                        SELECT b
+                        FROM Booking b
+                        JOIN b.user u
+                        JOIN b.event e
+                        WHERE (:status IS NULL OR b.status = :status)
+                        AND (
+                            :search IS NULL
+                            OR LOWER(u.fullName) LIKE LOWER(CONCAT('%', :search, '%'))
+                            OR LOWER(u.email) LIKE LOWER(CONCAT('%', :search, '%'))
+                            OR LOWER(e.title) LIKE LOWER(CONCAT('%', :search, '%'))
+                        )
+                        """, countQuery = """
+                        SELECT COUNT(b)
+                        FROM Booking b
+                        JOIN b.user u
+                        JOIN b.event e
+                        WHERE (:status IS NULL OR b.status = :status)
+                        AND (
+                            :search IS NULL
+                            OR LOWER(u.fullName) LIKE LOWER(CONCAT('%', :search, '%'))
+                            OR LOWER(u.email) LIKE LOWER(CONCAT('%', :search, '%'))
+                            OR LOWER(e.title) LIKE LOWER(CONCAT('%', :search, '%'))
+                        )
+                        """)
+        Page<Booking> searchAdminBookings(
+                        @Param("status") BookingStatus status,
+                        @Param("search") String search,
+                        Pageable pageable);
+
+        @Query("""
+                        SELECT COALESCE(SUM(b.quantity), 0)
+                        FROM Booking b
+                        WHERE b.status = :status
+                        """)
+        Long sumQuantityByStatus(
+                        @Param("status") BookingStatus status);
+
+        @Query("""
+                        SELECT COALESCE(SUM(b.totalAmount), 0)
+                        FROM Booking b
+                        WHERE b.status = :status
+                        """)
+        java.math.BigDecimal sumTotalAmountByStatus(
+                        @Param("status") BookingStatus status);
 
 }

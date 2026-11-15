@@ -78,5 +78,15 @@
     "name": "festora.jwt.refresh-expiration-days",
     "type": "java.lang.String",
     "description": "A description for 'festora.jwt.refresh-expiration-days'"
+  },
+  {
+    "name": "festora.storage.event-image-directory",
+    "type": "java.lang.String",
+    "description": "A description for 'festora.storage.event-image-directory'"
+  },
+  {
+    "name": "festora.storage.event-image-directory",
+    "type": "java.lang.String",
+    "description": "A description for 'festora.storage.event-image-directory'"
   }
 ]}

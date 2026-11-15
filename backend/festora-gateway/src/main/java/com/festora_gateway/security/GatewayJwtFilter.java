@@ -1,4 +1,3 @@
-
 package com.festora_gateway.security;
 
 import io.jsonwebtoken.Claims;
@@ -71,6 +70,11 @@ public class GatewayJwtFilter implements GlobalFilter, Ordered {
         if (method == HttpMethod.GET
                 && (path.equals("/api/categories")
                         || path.startsWith("/api/categories/"))) {
+            return chain.filter(exchange);
+        }
+        if (method == HttpMethod.GET
+                && (path.startsWith("/uploads/avatars/")
+                        || path.startsWith("/uploads/events/"))) {
             return chain.filter(exchange);
         }
         String authorization = exchange.getRequest()

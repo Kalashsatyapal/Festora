@@ -4,6 +4,7 @@ import com.festora_backend.common.enums.EventStatus;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.List;
 
 public record EventResponse(
         Long id,
@@ -22,6 +23,7 @@ public record EventResponse(
         EventStatus status,
         Long organizerId,
         String organizerName,
-        Instant createdAt
+        Instant createdAt,
+        List<String> imageUrls
 ) {
 }

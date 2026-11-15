@@ -153,7 +153,6 @@ class BookingServiceTest {
 
                 when(eventRepository.findByIdForUpdate(1L))
                                 .thenReturn(Optional.of(event));
-
                 when(event.getStatus())
                                 .thenReturn(EventStatus.DRAFT);
 

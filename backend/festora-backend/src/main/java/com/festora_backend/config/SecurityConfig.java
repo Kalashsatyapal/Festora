@@ -17,7 +17,6 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @EnableWebSecurity
 @EnableMethodSecurity
 public class SecurityConfig {
-
         private final JwtAuthenticationFilter jwtFilter;
 
         public SecurityConfig(JwtAuthenticationFilter jwtFilter) {
@@ -53,7 +52,8 @@ public class SecurityConfig {
 
                                                 .requestMatchers(
                                                                 HttpMethod.GET,
-                                                                "/uploads/avatars/**")
+                                                                "/uploads/avatars/**",
+                                                                "/uploads/events/**")
                                                 .permitAll()
 
                                                 .requestMatchers(
