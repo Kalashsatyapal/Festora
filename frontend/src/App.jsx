@@ -10,12 +10,14 @@ import EventDetails from "./pages/EventDetails";
 import Checkout from "./pages/Checkout";
 import AdminDashboard from "./pages/AdminDashboard";
 import OrganizerDashboard from "./pages/OrganizerDashboard";
-
+import UserDashboard from "./pages/UserDashboard";
 function NotFound() {
   return (
     <main className="mx-auto max-w-4xl px-5 py-24 text-center">
       <h1 className="text-5xl font-black">404</h1>
-      <p className="mt-3 text-slate-500">The page you requested could not be found.</p>
+      <p className="mt-3 text-slate-500">
+        The page you requested could not be found.
+      </p>
     </main>
   );
 }
@@ -31,9 +33,10 @@ export default function App() {
           <Route path="/register" element={<Register />} />
           <Route path="/events" element={<Events />} />
           <Route path="/events/:id" element={<EventDetails />} />
-
           <Route element={<ProtectedRoute roles={["USER"]} />}>
             <Route path="/checkout" element={<Checkout />} />
+            <Route path="/dashboard" element={<UserDashboard />} />
+            <Route path="/my-bookings" element={<UserDashboard />} />
           </Route>
 
           <Route element={<ProtectedRoute roles={["ORGANIZER"]} />}>
