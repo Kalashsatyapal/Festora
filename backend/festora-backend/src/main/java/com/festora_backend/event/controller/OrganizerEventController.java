@@ -1,12 +1,11 @@
 package com.festora_backend.event.controller;
-
 import com.festora_backend.common.response.ApiResponse;
 import com.festora_backend.common.response.PageResponse;
 import com.festora_backend.event.dto.*;
 import com.festora_backend.event.service.EventService;
-
+import org.springframework.web.multipart.MultipartFile;
+import java.util.List;
 import jakarta.validation.Valid;
-
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -74,6 +73,42 @@ public class OrganizerEventController {
                                 eventId,
                                 authentication.getName())));
     }
+
+@PostMapping(value = "/{eventId}/images", consumes = "multipart/form-data")
+public ResponseEntity<ApiResponse<EventResponse>> uploadImages(
+        @PathVariable Long eventId,
+        @RequestParam("files") List<MultipartFile> files,
+        Authentication authentication
+) {
+    return ResponseEntity.ok(
+            ApiResponse.success(
+                    "Event images uploaded successfully",
+                    eventService.uploadImages(
+                            eventId,
+                            files,
+                            authentication.getName()
+                    )
+            )
+    );
+}
+
+@DeleteMapping("/{eventId}/images/{imageIndex}")
+public ResponseEntity<ApiResponse<EventResponse>> removeImage(
+        @PathVariable Long eventId,
+        @PathVariable int imageIndex,
+        Authentication authentication
+) {
+    return ResponseEntity.ok(
+            ApiResponse.success(
+                    "Event image removed successfully",
+                    eventService.removeImage(
+                            eventId,
+                            imageIndex,
+                            authentication.getName()
+                    )
+            )
+    );
+}
 
     @PatchMapping("/{eventId}/publish")
     public ResponseEntity<ApiResponse<EventResponse>> publish(

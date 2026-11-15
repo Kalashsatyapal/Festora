@@ -11,6 +11,10 @@ import Checkout from "./pages/Checkout";
 import AdminDashboard from "./pages/AdminDashboard";
 import OrganizerDashboard from "./pages/OrganizerDashboard";
 import UserDashboard from "./pages/UserDashboard";
+import OrganizerTicketScanner from "./pages/OrganizerTicketScanner";
+import OrganizerEvents from "./pages/OrganizerEvents";
+import OrganizerAnalytics from "./pages/OrganizerAnalytics";
+import AdminManagement from "./pages/AdminManagement";
 function NotFound() {
   return (
     <main className="mx-auto max-w-4xl px-5 py-24 text-center">
@@ -41,10 +45,20 @@ export default function App() {
 
           <Route element={<ProtectedRoute roles={["ORGANIZER"]} />}>
             <Route path="/organizer" element={<OrganizerDashboard />} />
+            <Route
+              path="/organizer/ticket-scanner"
+              element={<OrganizerTicketScanner />}
+            />
+            <Route
+              path="/organizer/analytics"
+              element={<OrganizerAnalytics />}
+            />
+            <Route path="/organizer/events" element={<OrganizerEvents />} />
           </Route>
 
           <Route element={<ProtectedRoute roles={["ADMIN"]} />}>
             <Route path="/admin" element={<AdminDashboard />} />
+             <Route path="/admin/management" element={<AdminManagement />} />
           </Route>
 
           <Route path="*" element={<NotFound />} />

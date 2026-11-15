@@ -95,7 +95,7 @@ class BookingServiceTest {
                                 .thenAnswer(invocation -> invocation.getArgument(0));
 
                 CheckoutResponse response = bookingService.checkout(
-                                new CheckoutRequest(1L, 2),
+                                new CheckoutRequest(1L, 2, null),
                                 "user@test.com");
 
                 assertNotNull(response);
@@ -138,7 +138,7 @@ class BookingServiceTest {
                 assertThrows(
                                 BusinessException.class,
                                 () -> bookingService.checkout(
-                                                new CheckoutRequest(1L, 2),
+                                                new CheckoutRequest(1L, 2, null),
                                                 "user@test.com"));
 
                 verify(bookingRepository, never()).save(any());
@@ -159,7 +159,7 @@ class BookingServiceTest {
                 assertThrows(
                                 BusinessException.class,
                                 () -> bookingService.checkout(
-                                                new CheckoutRequest(1L, 1),
+                                                new CheckoutRequest(1L, 1, null),
                                                 "user@test.com"));
 
                 verify(ticketRepository, never())

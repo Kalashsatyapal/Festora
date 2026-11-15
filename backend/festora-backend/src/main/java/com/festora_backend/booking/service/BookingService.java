@@ -1,4 +1,5 @@
 package com.festora_backend.booking.service;
+
 import com.festora_backend.booking.dto.CheckoutRequest;
 import com.festora_backend.booking.dto.CheckoutResponse;
 import com.festora_backend.booking.entity.Booking;
@@ -13,7 +14,7 @@ import com.festora_backend.ticket.entity.Ticket;
 import com.festora_backend.ticket.repository.TicketRepository;
 import com.festora_backend.user.entity.User;
 import com.festora_backend.user.repository.UserRepository;
-
+import java.util.HashSet;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -64,7 +65,6 @@ public class BookingService {
                         new ResourceNotFoundException("User", email)
                 );
 
-        
         Event event = eventRepository.findByIdForUpdate(
                 request.eventId()
         ).orElseThrow(() ->
@@ -83,21 +83,44 @@ public class BookingService {
         Instant now = Instant.now();
         Instant expiresAt = now.plus(RESERVATION_DURATION);
 
-      Pageable pageable = PageRequest.of(
-        0,
-        request.quantity(),
-        Sort.by(Sort.Direction.ASC, Ticket::getSeatNumber)
-);
-        List<Ticket> availableTickets =
-                ticketRepository.findAvailableForUpdate(
-                        event.getId(),
-                        TicketStatus.AVAILABLE,
-                        pageable
+        List<Ticket> availableTickets;
+
+        if (request.seatNumbers() != null
+                && !request.seatNumbers().isEmpty()) {
+
+            if (request.seatNumbers().size() != request.quantity()
+                    || new HashSet<>(request.seatNumbers()).size()
+                    != request.seatNumbers().size()) {
+                throw new BusinessException(
+                        "Selected seat count must match ticket quantity"
                 );
+            }
+
+            availableTickets =
+                    ticketRepository.findAvailableByEventIdAndSeatNumbersForUpdate(
+                            event.getId(),
+                            request.seatNumbers(),
+                            TicketStatus.AVAILABLE
+                    );
+
+        } else {
+            Pageable pageable = PageRequest.of(
+                    0,
+                    request.quantity(),
+                    Sort.by(Sort.Direction.ASC, "seatNumber")
+            );
+
+            availableTickets =
+                    ticketRepository.findAvailableForUpdate(
+                            event.getId(),
+                            TicketStatus.AVAILABLE,
+                            pageable
+                    );
+        }
 
         if (availableTickets.size() < request.quantity()) {
             throw new BusinessException(
-                    "Insufficient tickets available"
+                    "One or more selected seats are no longer available"
             );
         }
 

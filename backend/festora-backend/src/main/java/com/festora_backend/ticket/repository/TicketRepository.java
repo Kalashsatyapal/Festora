@@ -57,12 +57,12 @@ public interface TicketRepository extends JpaRepository<Ticket, Long> {
                         JOIN FETCH t.booking b
                         JOIN FETCH b.user u
                         WHERE t.event.id = :eventId
-                        AND t.status = :status
+                        AND t.status IN :statuses
                         ORDER BY t.soldAt ASC
                         """)
         List<Ticket> findSoldTicketsWithAttendee(
                         @Param("eventId") Long eventId,
-                        @Param("status") TicketStatus status);
+                        @Param("statuses") List<TicketStatus> statuses);
 
         List<Ticket> findByEventIdAndStatus(
                         Long eventId,
@@ -77,7 +77,7 @@ public interface TicketRepository extends JpaRepository<Ticket, Long> {
                         SELECT t FROM Ticket t
                         WHERE t.event.id = :eventId
                         AND t.status = :status
-                        ORDER BY t.seatNumber
+                        ORDER BY t.id
                         """)
         List<Ticket> findAvailableForUpdate(
                         @Param("eventId") Long eventId,
@@ -85,6 +85,23 @@ public interface TicketRepository extends JpaRepository<Ticket, Long> {
                         Pageable pageable);
 
         List<Ticket> findByBookingId(Long bookingId);
+
+        long countByEventId(Long eventId);
+
+        List<Ticket> findByEventIdOrderByIdAsc(Long eventId);
+
+        @Lock(LockModeType.PESSIMISTIC_WRITE)
+        @Query("""
+                        SELECT t FROM Ticket t
+                        WHERE t.event.id = :eventId
+                        AND t.seatNumber IN :seatNumbers
+                        AND t.status = :status
+                        ORDER BY t.id
+                        """)
+        List<Ticket> findAvailableByEventIdAndSeatNumbersForUpdate(
+                        @Param("eventId") Long eventId,
+                        @Param("seatNumbers") List<String> seatNumbers,
+                        @Param("status") TicketStatus status);
 
         @Lock(LockModeType.PESSIMISTIC_WRITE)
         @Query("""

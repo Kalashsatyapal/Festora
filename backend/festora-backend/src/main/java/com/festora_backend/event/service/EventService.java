@@ -21,14 +21,14 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
-
+import com.festora_backend.ticket.service.TicketInventoryService;
 import java.time.Instant;
 import java.util.List;
 
 @Service
 @Transactional
 public class EventService {
-
+private final TicketInventoryService ticketInventoryService;
     private final VenueCalendarService venueCalendarService;
     private final EventRepository eventRepository;
     private final CategoryRepository categoryRepository;
@@ -41,6 +41,7 @@ public class EventService {
             CategoryRepository categoryRepository,
             VenueRepository venueRepository,
             UserRepository userRepository,
+            TicketInventoryService ticketInventoryService,
             VenueCalendarService venueCalendarService,
             EventImageStorageService eventImageStorageService) {
         this.eventRepository = eventRepository;
@@ -48,6 +49,7 @@ public class EventService {
         this.venueRepository = venueRepository;
         this.userRepository = userRepository;
         this.venueCalendarService = venueCalendarService;
+        this.ticketInventoryService = ticketInventoryService;
         this.eventImageStorageService = eventImageStorageService;
     }
 
@@ -183,7 +185,8 @@ public class EventService {
         if (!event.getStartAt().isAfter(Instant.now())) {
             throw new BusinessException("Event start time must be in the future");
         }
-        event.publish();
+        ticketInventoryService.initializeForEvent(event);
+event.publish();
         return toResponse(event);
     }
 
