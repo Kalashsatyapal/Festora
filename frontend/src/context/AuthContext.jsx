@@ -43,13 +43,24 @@ export function AuthProvider({ children }) {
       userId: data.userId,
       fullName: data.fullName,
       email: data.email,
-      role: data.role
+      role: data.role,
+      avatarUrl: null
     };
 
     localStorage.setItem("festora_user", JSON.stringify(profile));
     setUser(profile);
 
     return profile;
+  };
+
+  const updateUser = (updates) => {
+    setUser((current) => {
+      if (!current) return current;
+
+      const updated = { ...current, ...updates };
+      localStorage.setItem("festora_user", JSON.stringify(updated));
+      return updated;
+    });
   };
 
   const logout = () => {
@@ -60,7 +71,13 @@ export function AuthProvider({ children }) {
   };
 
   const value = useMemo(
-    () => ({ user, login, logout, authenticated: Boolean(user) }),
+    () => ({
+      user,
+      login,
+      logout,
+      updateUser,
+      authenticated: Boolean(user)
+    }),
     [user]
   );
 

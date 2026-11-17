@@ -15,6 +15,7 @@ import OrganizerTicketScanner from "./pages/OrganizerTicketScanner";
 import OrganizerEvents from "./pages/OrganizerEvents";
 import OrganizerAnalytics from "./pages/OrganizerAnalytics";
 import AdminManagement from "./pages/AdminManagement";
+import Profile from "./pages/Profile";
 function NotFound() {
   return (
     <main className="mx-auto max-w-4xl px-5 py-24 text-center">
@@ -58,9 +59,14 @@ export default function App() {
 
           <Route element={<ProtectedRoute roles={["ADMIN"]} />}>
             <Route path="/admin" element={<AdminDashboard />} />
-             <Route path="/admin/management" element={<AdminManagement />} />
+            <Route path="/admin/management" element={<AdminManagement />} />
           </Route>
-
+          
+          <Route
+            element={<ProtectedRoute roles={["USER", "ORGANIZER", "ADMIN"]} />}
+          >
+            <Route path="/profile" element={<Profile />} />
+          </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
       </div>
