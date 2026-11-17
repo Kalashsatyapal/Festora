@@ -61,7 +61,10 @@ public class RefundAudit {
         audit.status = PaymentStatus.REFUND_PENDING;
         return audit;
     }
-
+public void markPending() {
+    this.status = PaymentStatus.REFUND_PENDING;
+    this.failureReason = null;
+}
     @PrePersist
     protected void onCreate() {
         Instant now = Instant.now();

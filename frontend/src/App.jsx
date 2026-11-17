@@ -16,6 +16,8 @@ import OrganizerEvents from "./pages/OrganizerEvents";
 import OrganizerAnalytics from "./pages/OrganizerAnalytics";
 import AdminManagement from "./pages/AdminManagement";
 import Profile from "./pages/Profile";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 function NotFound() {
   return (
     <main className="mx-auto max-w-4xl px-5 py-24 text-center">
@@ -38,6 +40,8 @@ export default function App() {
           <Route path="/register" element={<Register />} />
           <Route path="/events" element={<Events />} />
           <Route path="/events/:id" element={<EventDetails />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+<Route path="/reset-password" element={<ResetPassword />} />
           <Route element={<ProtectedRoute roles={["USER"]} />}>
             <Route path="/checkout" element={<Checkout />} />
             <Route path="/dashboard" element={<UserDashboard />} />
@@ -68,6 +72,7 @@ export default function App() {
             <Route path="/profile" element={<Profile />} />
           </Route>
           <Route path="*" element={<NotFound />} />
+
         </Routes>
       </div>
     </AuthProvider>

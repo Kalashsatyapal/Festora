@@ -1,4 +1,3 @@
-
 import { useCallback, useEffect, useState } from "react";
 import {
   Check,
@@ -13,7 +12,7 @@ import {
 import api from "../api/client";
 import Loading from "../components/Loading";
 
-const sections = ["Organizers", "Users", "Bookings", "Refunds"];
+const sections = ["Organizers", "Users", "Categories", "Bookings", "Refunds"];
 
 const bookingStatuses = ["PENDING", "CONFIRMED", "CANCELLED", "EXPIRED", "REFUND_PENDING", "REFUNDED"];
 const refundStatuses = ["INITIATED", "SUCCESS", "FAILED", "REFUND_PENDING", "REFUNDED"];
@@ -31,6 +30,11 @@ export default function AdminManagement() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [refundReason, setRefundReason] = useState({});
+  const [categoryForm, setCategoryForm] = useState({
+    name: "",
+    description: ""
+  });
+  const [editingCategoryId, setEditingCategoryId] = useState(null);
 
   const loadOrganizers = useCallback(async () => {
     const response = await api.get("/admin/organizers/pending");
@@ -40,9 +44,11 @@ export default function AdminManagement() {
   const loadRecords = useCallback(async () => {
     const endpoint = section === "Users"
       ? "/admin/users"
-      : section === "Bookings"
-        ? "/admin/bookings"
-        : "/admin/refunds";
+      : section === "Categories"
+        ? "/admin/categories"
+        : section === "Bookings"
+          ? "/admin/bookings"
+          : "/admin/refunds";
 
     const params = { page, size: 20 };
     if (search.trim()) params.search = search.trim();
@@ -149,6 +155,72 @@ export default function AdminManagement() {
     );
   };
 
+  const resetCategoryForm = () => {
+    setCategoryForm({
+      name: "",
+      description: ""
+    });
+    setEditingCategoryId(null);
+  };
+
+  const saveCategory = async (event) => {
+    event.preventDefault();
+
+    const payload = {
+      name: categoryForm.name.trim(),
+      description: categoryForm.description.trim()
+    };
+
+    if (!payload.name) {
+      setError("Category name is required.");
+      return;
+    }
+
+    setBusyId(editingCategoryId || "new-category");
+    setError("");
+    setMessage("");
+
+    try {
+      if (editingCategoryId) {
+        await api.put(`/admin/categories/${editingCategoryId}`, payload);
+        setMessage("Category updated successfully.");
+      } else {
+        await api.post("/admin/categories", payload);
+        setMessage("Category created successfully.");
+      }
+
+      resetCategoryForm();
+      await loadData();
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to save category.");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const editCategory = (category) => {
+    setCategoryForm({
+      name: category.name,
+      description: category.description || ""
+    });
+    setEditingCategoryId(category.id);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const toggleCategoryStatus = (category) => {
+    const action = category.active ? "deactivate" : "activate";
+
+    if (!window.confirm(`${action} category "${category.name}"?`)) return;
+
+    runAction(
+      category.id,
+      () => api.patch(`/admin/categories/${category.id}/status`, {
+        active: !category.active
+      }),
+      `Category ${action}d successfully`
+    );
+  };
+
   const formatAmount = (value) =>
     `₹${Number(value || 0).toLocaleString("en-IN", {
       minimumFractionDigits: 2,
@@ -168,7 +240,7 @@ export default function AdminManagement() {
         <div>
           <h1 className="text-3xl font-black text-slate-900">Admin management</h1>
           <p className="mt-2 text-slate-500">
-            Manage organizer applications, users, bookings and refunds.
+            Manage organizer applications, users, categories, bookings and refunds.
           </p>
         </div>
         <button
@@ -288,6 +360,154 @@ export default function AdminManagement() {
             </article>
           ))}
         </section>
+      ) : section === "Categories" ? (
+        <section className="mt-7 space-y-6">
+          <form
+            onSubmit={saveCategory}
+            className="rounded-2xl border border-slate-200 bg-white p-6"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-xl font-black text-slate-900">
+                  {editingCategoryId ? "Edit category" : "Create category"}
+                </h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  Organize events into discoverable categories.
+                </p>
+              </div>
+
+              {editingCategoryId && (
+                <button
+                  type="button"
+                  onClick={resetCategoryForm}
+                  className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold"
+                >
+                  Cancel editing
+                </button>
+              )}
+            </div>
+
+            <div className="mt-6 grid gap-4 md:grid-cols-2">
+              <div>
+                <label className="block text-sm font-semibold">
+                  Category name
+                </label>
+                <input
+                  required
+                  maxLength={100}
+                  value={categoryForm.name}
+                  onChange={(event) =>
+                    setCategoryForm({
+                      ...categoryForm,
+                      name: event.target.value
+                    })
+                  }
+                  placeholder="Music, Technology, Sports..."
+                  className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold">
+                  Description
+                </label>
+                <input
+                  maxLength={500}
+                  value={categoryForm.description}
+                  onChange={(event) =>
+                    setCategoryForm({
+                      ...categoryForm,
+                      description: event.target.value
+                    })
+                  }
+                  placeholder="Describe this category"
+                  className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3"
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={busyId !== null}
+              className="mt-5 rounded-xl bg-indigo-600 px-6 py-3 font-bold text-white disabled:opacity-50"
+            >
+              {busyId !== null
+                ? "Saving..."
+                : editingCategoryId
+                  ? "Update category"
+                  : "Create category"}
+            </button>
+          </form>
+
+          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+            <div className="border-b border-slate-100 p-5">
+              <h2 className="text-lg font-black">All categories</h2>
+              <p className="mt-1 text-sm text-slate-500">
+                {records.length} categories on this page
+              </p>
+            </div>
+
+            <div className="divide-y divide-slate-100">
+              {records.map((category) => (
+                <article
+                  key={category.id}
+                  className="flex flex-wrap items-center justify-between gap-4 p-5"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <h3 className="font-bold text-slate-900">
+                        {category.name}
+                      </h3>
+
+                      <span className={`rounded-full px-3 py-1 text-xs font-bold ${
+                        category.active
+                          ? "bg-emerald-50 text-emerald-700"
+                          : "bg-slate-100 text-slate-500"
+                      }`}>
+                        {category.active ? "Active" : "Inactive"}
+                      </span>
+                    </div>
+
+                    <p className="mt-2 text-sm text-slate-500">
+                      {category.description || "No description"}
+                    </p>
+
+                    <p className="mt-1 text-xs text-slate-400">
+                      Created {formatDate(category.createdAt)}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => editCategory(category)}
+                      className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold"
+                    >
+                      Edit
+                    </button>
+
+                    <button
+                      disabled={busyId === category.id}
+                      onClick={() => toggleCategoryStatus(category)}
+                      className={`rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-50 ${
+                        category.active
+                          ? "bg-red-50 text-red-700"
+                          : "bg-emerald-50 text-emerald-700"
+                      }`}
+                    >
+                      {category.active ? "Deactivate" : "Activate"}
+                    </button>
+                  </div>
+                </article>
+              ))}
+
+              {records.length === 0 && (
+                <p className="p-10 text-center text-slate-500">
+                  No categories found.
+                </p>
+              )}
+            </div>
+          </div>
+        </section>
       ) : section === "Users" ? (
         <section className="mt-7 overflow-x-auto rounded-2xl border border-slate-200 bg-white">
           <table className="w-full min-w-[850px] text-left text-sm">
@@ -359,24 +579,29 @@ export default function AdminManagement() {
                 <span>Booking #{booking.id}</span>
                 <span>{formatDate(booking.createdAt)}</span>
               </div>
-              {booking.status === "CONFIRMED" && (
-                <div className="mt-5 flex flex-wrap gap-3">
-                  <input
-                    value={refundReason[booking.bookingReference] || ""}
-                    onChange={(event) => setRefundReason((current) => ({
-                      ...current,
-                      [booking.bookingReference]: event.target.value
-                    }))}
-                    placeholder="Refund reason"
-                    className="min-w-60 flex-1 rounded-xl border border-slate-200 px-4 py-3"
-                  />
-                  <button
-                    disabled={busyId === booking.bookingReference}
-                    onClick={() => initiateRefund(booking)}
-                    className="rounded-xl bg-amber-600 px-5 py-3 font-semibold text-white disabled:opacity-50"
-                  >
-                    Initiate refund
-                  </button>
+              {booking.status === "CANCELLED" && (
+                <div className="mt-5 space-y-3">
+                  <div className="flex flex-wrap gap-3">
+                    <input
+                      value={refundReason[booking.bookingReference] || ""}
+                      onChange={(event) => setRefundReason((current) => ({
+                        ...current,
+                        [booking.bookingReference]: event.target.value
+                      }))}
+                      placeholder="Refund reason"
+                      className="min-w-60 flex-1 rounded-xl border border-slate-200 px-4 py-3"
+                    />
+                    <button
+                      disabled={busyId === booking.bookingReference}
+                      onClick={() => initiateRefund(booking)}
+                      className="rounded-xl bg-amber-600 px-5 py-3 font-semibold text-white disabled:opacity-50"
+                    >
+                      Initiate / retry refund
+                    </button>
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    Only cancelled bookings can be refunded. Failed refund attempts can be retried.
+                  </p>
                 </div>
               )}
             </article>

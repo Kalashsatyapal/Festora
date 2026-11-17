@@ -1,3 +1,4 @@
+
 package com.festora_backend.admin.service;
 
 import com.festora_backend.admin.dto.BillingRefundRequest;
@@ -8,9 +9,9 @@ import com.festora_backend.admin.repository.RefundAuditRepository;
 import com.festora_backend.booking.entity.Booking;
 import com.festora_backend.booking.repository.BookingRepository;
 import com.festora_backend.common.enums.BookingStatus;
+import com.festora_backend.common.enums.PaymentStatus;
 import com.festora_backend.common.exception.BusinessException;
 import com.festora_backend.common.exception.ResourceNotFoundException;
-
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -41,10 +42,7 @@ public class AdminRefundService {
         Booking booking = bookingRepository
                 .findByBookingReferenceForUpdate(bookingReference)
                 .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "Booking",
-                                bookingReference
-                        )
+                        new ResourceNotFoundException("Booking", bookingReference)
                 );
 
         if (booking.getStatus() != BookingStatus.CANCELLED) {
@@ -53,15 +51,25 @@ public class AdminRefundService {
             );
         }
 
-        if (refundRepository.findByBookingId(booking.getId()).isPresent()) {
-            throw new BusinessException(
-                    "A refund request already exists for this booking"
+        var existingAudit = refundRepository.findByBookingId(booking.getId());
+
+        RefundAudit audit;
+
+        if (existingAudit.isPresent()) {
+            audit = existingAudit.get();
+
+            if (audit.getStatus() != PaymentStatus.FAILED) {
+                throw new BusinessException(
+                        "A refund request already exists for this booking"
+                );
+            }
+
+            audit.markPending();
+        } else {
+            audit = refundRepository.save(
+                    RefundAudit.create(booking, reason.trim())
             );
         }
-
-        RefundAudit audit = refundRepository.save(
-                RefundAudit.create(booking, reason.trim())
-        );
 
         int updated = bookingRepository.updateBookingStatus(
                 booking.getId(),
@@ -76,22 +84,21 @@ public class AdminRefundService {
         }
 
         try {
-            BillingRefundResponse billingResponse =
-                    billingClient.refund(
-                            new BillingRefundRequest(
-                                    booking.getBookingReference(),
-                                    booking.getTotalAmount(),
-                                    reason.trim()
-                            )
-                    );
+            BillingRefundResponse billingResponse = billingClient.refund(
+                    new BillingRefundRequest(
+                            booking.getBookingReference(),
+                            booking.getTotalAmount(),
+                            reason.trim()
+                    )
+            );
 
-            if (billingResponse == null
-                    || !billingResponse.successful()) {
+            if (billingResponse == null || !billingResponse.successful()) {
                 String message = billingResponse == null
                         ? "Billing service returned an empty response"
                         : billingResponse.message();
 
                 audit.markFailed(message);
+
                 bookingRepository.updateBookingStatus(
                         booking.getId(),
                         BookingStatus.REFUND_PENDING,
@@ -99,14 +106,22 @@ public class AdminRefundService {
                 );
             } else {
                 audit.markRefunded(billingResponse.refundReference());
-                bookingRepository.updateBookingStatus(
+
+                int completed = bookingRepository.updateBookingStatus(
                         booking.getId(),
                         BookingStatus.REFUND_PENDING,
                         BookingStatus.REFUNDED
                 );
+
+                if (completed != 1) {
+                    throw new BusinessException(
+                            "Unable to complete booking refund status"
+                    );
+                }
             }
         } catch (RuntimeException exception) {
             audit.markFailed(exception.getMessage());
+
             bookingRepository.updateBookingStatus(
                     booking.getId(),
                     BookingStatus.REFUND_PENDING,
@@ -121,10 +136,7 @@ public class AdminRefundService {
     public RefundResponse getRefund(Long refundId) {
         RefundAudit audit = refundRepository.findById(refundId)
                 .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "Refund",
-                                refundId
-                        )
+                        new ResourceNotFoundException("Refund", refundId)
                 );
 
         return toResponse(audit);
