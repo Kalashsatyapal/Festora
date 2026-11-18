@@ -1,7 +1,6 @@
 package com.festora_backend.config;
 
 import com.festora_backend.auth.security.JwtAuthenticationFilter;
-
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -17,70 +16,64 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @EnableWebSecurity
 @EnableMethodSecurity
 public class SecurityConfig {
-        private final JwtAuthenticationFilter jwtFilter;
 
-        public SecurityConfig(JwtAuthenticationFilter jwtFilter) {
-                this.jwtFilter = jwtFilter;
-        }
+    private final JwtAuthenticationFilter jwtFilter;
 
-        @Bean
-        public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityConfig(JwtAuthenticationFilter jwtFilter) {
+        this.jwtFilter = jwtFilter;
+    }
 
-                return http
-                                .csrf(csrf -> csrf.disable())
-                                .cors(Customizer.withDefaults())
-                                .sessionManagement(session -> session
-                                                .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+    @Bean
+    public SecurityFilterChain securityFilterChain(
+            HttpSecurity http
+    ) throws Exception {
 
-                                .authorizeHttpRequests(auth -> auth
-
-                                                .requestMatchers(
-                                                                "/api/auth/register",
-                                                                "/api/auth/register/organizer",
-                                                                "/api/auth/login",
-                                                                "/api/auth/forgot-password",
-                                                                "/api/auth/reset-password",
-                                                                "/api/auth/refresh",
-                                                                "/actuator/health")
-                                                .permitAll()
-
-                                                .requestMatchers(
-                                                                "/api-docs/**",
-                                                                "/swagger-ui/**",
-                                                                "/swagger-ui.html")
-                                                .permitAll()
-
-                                                .requestMatchers(
-                                                                HttpMethod.GET,
-                                                                "/uploads/avatars/**",
-                                                                "/uploads/events/**")
-                                                .permitAll()
-
-                                                .requestMatchers(
-                                                                HttpMethod.GET,
-                                                                "/api/events",
-                                                                "/api/events/**")
-                                                .permitAll()
-
-                                                .requestMatchers(
-                                                                HttpMethod.GET,
-                                                                "/api/categories",
-                                                                "/api/categories/**")
-                                                .permitAll()
-
-                                                .requestMatchers("/api/admin/**")
-                                                .hasRole("ADMIN")
-
-                                                .requestMatchers("/api/organizer/**")
-                                                .hasRole("ORGANIZER")
-
-                                                .anyRequest()
-                                                .authenticated())
-
-                                .addFilterBefore(
-                                                jwtFilter,
-                                                UsernamePasswordAuthenticationFilter.class)
-
-                                .build();
-        }
+        return http
+                .csrf(csrf -> csrf.disable())
+                .cors(Customizer.withDefaults())
+                .sessionManagement(session -> session
+                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(
+                                "/api/webhooks/razorpay",
+                                "/api/auth/register",
+                                "/api/auth/register/organizer",
+                                "/api/auth/login",
+                                "/api/auth/forgot-password",
+                                "/api/auth/reset-password",
+                                "/api/auth/refresh",
+                                "/actuator/health")
+                        .permitAll()
+                        .requestMatchers(
+                                "/api-docs/**",
+                                "/swagger-ui/**",
+                                "/swagger-ui.html")
+                        .permitAll()
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/uploads/avatars/**",
+                                "/uploads/events/**")
+                        .permitAll()
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/events",
+                                "/api/events/**")
+                        .permitAll()
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/categories",
+                                "/api/categories/**")
+                        .permitAll()
+                        .requestMatchers("/api/admin/**")
+                        .hasRole("ADMIN")
+                        .requestMatchers("/api/organizer/**")
+                        .hasRole("ORGANIZER")
+                        .anyRequest()
+                        .authenticated())
+                .addFilterBefore(
+                        jwtFilter,
+                        UsernamePasswordAuthenticationFilter.class
+                )
+                .build();
+    }
 }

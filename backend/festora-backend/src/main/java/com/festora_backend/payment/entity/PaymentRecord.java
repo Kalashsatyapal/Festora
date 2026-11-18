@@ -1,4 +1,3 @@
-
 package com.festora_backend.payment.entity;
 
 import com.festora_backend.booking.entity.Booking;
@@ -17,6 +16,10 @@ import java.time.Instant;
                 @UniqueConstraint(
                         name = "uk_payment_razorpay_order",
                         columnNames = "razorpay_order_id"
+                ),
+                @UniqueConstraint(
+                        name = "uk_payment_razorpay_payment",
+                        columnNames = "razorpay_payment_id"
                 )
         }
 )
@@ -32,6 +35,9 @@ public class PaymentRecord {
 
     @Column(name = "razorpay_order_id", nullable = false, unique = true, length = 100)
     private String razorpayOrderId;
+
+    @Column(name = "razorpay_payment_id", unique = true, length = 100)
+    private String razorpayPaymentId;
 
     @Column(nullable = false)
     private Long amountPaise;
@@ -67,6 +73,18 @@ public class PaymentRecord {
         return payment;
     }
 
+    public void markSuccessful(String razorpayPaymentId) {
+        if (status == PaymentStatus.SUCCESS
+                && !razorpayPaymentId.equals(this.razorpayPaymentId)) {
+            throw new IllegalStateException(
+                    "Payment is already linked to another payment reference"
+            );
+        }
+
+        this.razorpayPaymentId = razorpayPaymentId;
+        this.status = PaymentStatus.SUCCESS;
+    }
+
     @PrePersist
     protected void onCreate() {
         Instant now = Instant.now();
@@ -89,6 +107,10 @@ public class PaymentRecord {
 
     public String getRazorpayOrderId() {
         return razorpayOrderId;
+    }
+
+    public String getRazorpayPaymentId() {
+        return razorpayPaymentId;
     }
 
     public Long getAmountPaise() {
