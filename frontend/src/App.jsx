@@ -18,6 +18,7 @@ import AdminManagement from "./pages/AdminManagement";
 import Profile from "./pages/Profile";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
+import AdminVenues from "./pages/AdminVenues";
 function NotFound() {
   return (
     <main className="mx-auto max-w-4xl px-5 py-24 text-center">
@@ -64,6 +65,7 @@ export default function App() {
           <Route element={<ProtectedRoute roles={["ADMIN"]} />}>
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/admin/management" element={<AdminManagement />} />
+            <Route path="/admin/venues" element={<AdminVenues />} />
           </Route>
           
           <Route

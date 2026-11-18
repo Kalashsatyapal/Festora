@@ -107,7 +107,7 @@ public class BookingService {
             Pageable pageable = PageRequest.of(
                     0,
                     request.quantity(),
-                    Sort.by(Sort.Direction.ASC, "seatNumber")
+                    Sort.by(Sort.Direction.ASC, Ticket::getSeatNumber)
             );
 
             availableTickets =

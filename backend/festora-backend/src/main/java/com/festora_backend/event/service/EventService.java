@@ -14,7 +14,7 @@ import com.festora_backend.user.entity.User;
 import com.festora_backend.user.repository.UserRepository;
 import com.festora_backend.venue.entity.Venue;
 import com.festora_backend.venue.repository.VenueRepository;
-import com.festora_backend.venue.service.VenueCalendarService;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -29,7 +29,6 @@ import java.util.List;
 @Transactional
 public class EventService {
 private final TicketInventoryService ticketInventoryService;
-    private final VenueCalendarService venueCalendarService;
     private final EventRepository eventRepository;
     private final CategoryRepository categoryRepository;
     private final VenueRepository venueRepository;
@@ -42,13 +41,11 @@ private final TicketInventoryService ticketInventoryService;
             VenueRepository venueRepository,
             UserRepository userRepository,
             TicketInventoryService ticketInventoryService,
-            VenueCalendarService venueCalendarService,
             EventImageStorageService eventImageStorageService) {
         this.eventRepository = eventRepository;
         this.categoryRepository = categoryRepository;
         this.venueRepository = venueRepository;
         this.userRepository = userRepository;
-        this.venueCalendarService = venueCalendarService;
         this.ticketInventoryService = ticketInventoryService;
         this.eventImageStorageService = eventImageStorageService;
     }
@@ -60,9 +57,6 @@ private final TicketInventoryService ticketInventoryService;
         Category category = getActiveCategory(request.categoryId());
         Venue venue = getActiveVenue(request.venueId());
         validateDates(request.startAt(), request.endAt());
-        venueCalendarService.assertCanSchedule(
-                venue.getId(), request.startAt(), request.endAt(), null,
-                organizer);
         Event event = Event.create(
                 request.title(), request.description(), category, venue,
                 request.startAt(), request.endAt(), request.totalCapacity(),
@@ -79,9 +73,6 @@ private final TicketInventoryService ticketInventoryService;
         }
         Category category = getActiveCategory(request.categoryId());
         Venue venue = getActiveVenue(request.venueId());
-        venueCalendarService.assertCanSchedule(
-                venue.getId(), request.startAt(), request.endAt(),
-                event.getId(), event.getOrganizer());
         validateDates(request.startAt(), request.endAt());
         event.updateDetails(request.title(), request.description(), category,
                 venue, request.startAt(), request.endAt(),

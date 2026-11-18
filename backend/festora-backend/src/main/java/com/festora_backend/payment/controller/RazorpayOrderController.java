@@ -14,7 +14,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/bookings")
+@RequestMapping("/api/bookings/{bookingReference}")
 public class RazorpayOrderController {
 
     private final RazorpayOrderService razorpayOrderService;
@@ -28,7 +28,7 @@ public class RazorpayOrderController {
         this.paymentVerificationService = paymentVerificationService;
     }
 
-    @PostMapping("/{bookingReference}/payment-order")
+    @PostMapping("/payment-order")
     @PreAuthorize("hasRole('USER')")
     public ResponseEntity<ApiResponse<RazorpayOrderResponse>> createOrder(
             @PathVariable UUID bookingReference,
@@ -48,7 +48,7 @@ public class RazorpayOrderController {
         );
     }
 
-    @PostMapping("/{bookingReference}/verify-payment")
+    @PostMapping("/verify-payment")
     @PreAuthorize("hasRole('USER')")
     public ResponseEntity<ApiResponse<PaymentVerificationResponse>> verifyPayment(
             @PathVariable UUID bookingReference,

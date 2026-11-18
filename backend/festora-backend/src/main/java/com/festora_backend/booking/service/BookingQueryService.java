@@ -35,7 +35,7 @@ public class BookingQueryService {
         PageRequest pageable = PageRequest.of(
                 page,
                 size,
-                Sort.by(Sort.Direction.DESC, "createdAt")
+                Sort.by(Sort.Direction.DESC, Booking::getCreatedAt)
         );
         Page<Booking> bookings = status == null
                 ? bookingRepository.findByUserId(user.getId(), pageable)

@@ -7,11 +7,9 @@ import com.festora_backend.common.exception.BusinessException;
 import com.festora_backend.common.exception.ResourceNotFoundException;
 import com.festora_backend.user.entity.User;
 import com.festora_backend.user.repository.UserRepository;
-
+import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
 
 @Service
 public class AdminOrganizerService {
@@ -29,6 +27,18 @@ public class AdminOrganizerService {
                         AccountStatus.PENDING
                 )
                 .stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<OrganizerVerificationResponse> getApprovedOrganizers() {
+        return userRepository.findByRoleAndStatus(
+                        UserRole.ORGANIZER,
+                        AccountStatus.ACTIVE
+                )
+                .stream()
+                .filter(User::isEnabled)
                 .map(this::toResponse)
                 .toList();
     }

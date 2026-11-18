@@ -3,12 +3,10 @@ package com.festora_backend.admin.controller;
 import com.festora_backend.admin.dto.OrganizerVerificationResponse;
 import com.festora_backend.admin.service.AdminOrganizerService;
 import com.festora_backend.common.response.ApiResponse;
-
+import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/admin/organizers")
@@ -29,6 +27,16 @@ public class AdminOrganizerController {
                 ApiResponse.success(
                         "Pending organizers retrieved successfully",
                         organizerService.getPendingOrganizers()
+                )
+        );
+    }
+
+    @GetMapping("/approved")
+    public ResponseEntity<ApiResponse<List<OrganizerVerificationResponse>>> getApproved() {
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        "Approved organizers retrieved successfully",
+                        organizerService.getApprovedOrganizers()
                 )
         );
     }

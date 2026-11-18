@@ -48,9 +48,14 @@ export default function Navbar() {
           )}
 
           {user?.role === "ADMIN" && (
-            <NavLink to="/admin" className={linkClass}>
-              Admin
-            </NavLink>
+            <>
+              <NavLink to="/admin" end className={linkClass}>
+                Admin
+              </NavLink>
+              <NavLink to="/admin/venues" className={linkClass}>
+                Manage venues
+              </NavLink>
+            </>
           )}
 
           {user ? (
@@ -129,9 +134,23 @@ export default function Navbar() {
             )}
 
             {user?.role === "ADMIN" && (
-              <NavLink to="/admin" onClick={closeMenu} className={linkClass}>
-                Admin
-              </NavLink>
+              <>
+                <NavLink
+                  to="/admin"
+                  end
+                  onClick={closeMenu}
+                  className={linkClass}
+                >
+                  Admin
+                </NavLink>
+                <NavLink
+                  to="/admin/venues"
+                  onClick={closeMenu}
+                  className={linkClass}
+                >
+                  Manage venues
+                </NavLink>
+              </>
             )}
 
             {user ? (
