@@ -88,5 +88,15 @@
     "name": "festora.storage.event-image-directory",
     "type": "java.lang.String",
     "description": "A description for 'festora.storage.event-image-directory'"
+  },
+  {
+    "name": "festora.razorpay.key-secret",
+    "type": "java.lang.String",
+    "description": "A description for 'festora.razorpay.key-secret'"
+  },
+  {
+    "name": "festora.razorpay.key-id",
+    "type": "java.lang.String",
+    "description": "A description for 'festora.razorpay.key-id'"
   }
 ]}

@@ -1,7 +1,8 @@
+
 @echo off
 title Festora Application Launcher
 
-set "ROOT=F:\Projects\Festora"
+for %%I in ("%~dp0.") do set "ROOT=%%~fI"
 
 where mvn >nul 2>nul
 if errorlevel 1 (

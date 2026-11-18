@@ -510,7 +510,7 @@ export default function AdminManagement() {
         </section>
       ) : section === "Users" ? (
         <section className="mt-7 overflow-x-auto rounded-2xl border border-slate-200 bg-white">
-          <table className="w-full min-w-[850px] text-left text-sm">
+          <table className="w-full min-w-212.5 text-left text-sm">
             <thead className="bg-slate-50 text-slate-500">
               <tr>
                 <th className="p-4">User</th>
