@@ -5,6 +5,7 @@ import java.util.UUID;
 
 public record BillingRefundRequest(
         UUID bookingReference,
+        String razorpayPaymentId,
         BigDecimal amount,
         String reason
 ) {

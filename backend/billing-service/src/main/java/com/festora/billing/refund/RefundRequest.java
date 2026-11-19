@@ -10,6 +10,7 @@ import java.util.UUID;
 
 public record RefundRequest(
         @NotNull UUID bookingReference,
+        @NotBlank String razorpayPaymentId,
         @NotNull @DecimalMin("0.01") BigDecimal amount,
         @NotBlank @Size(max = 500) String reason
 ) {

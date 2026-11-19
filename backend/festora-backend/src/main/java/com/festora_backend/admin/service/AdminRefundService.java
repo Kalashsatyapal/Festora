@@ -1,4 +1,3 @@
-
 package com.festora_backend.admin.service;
 
 import com.festora_backend.admin.dto.BillingRefundRequest;
@@ -12,6 +11,8 @@ import com.festora_backend.common.enums.BookingStatus;
 import com.festora_backend.common.enums.PaymentStatus;
 import com.festora_backend.common.exception.BusinessException;
 import com.festora_backend.common.exception.ResourceNotFoundException;
+import com.festora_backend.payment.entity.PaymentRecord;
+import com.festora_backend.payment.repository.PaymentRecordRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,15 +23,18 @@ public class AdminRefundService {
 
     private final BookingRepository bookingRepository;
     private final RefundAuditRepository refundRepository;
+    private final PaymentRecordRepository paymentRecordRepository;
     private final BillingClient billingClient;
 
     public AdminRefundService(
             BookingRepository bookingRepository,
             RefundAuditRepository refundRepository,
+            PaymentRecordRepository paymentRecordRepository,
             BillingClient billingClient
     ) {
         this.bookingRepository = bookingRepository;
         this.refundRepository = refundRepository;
+        this.paymentRecordRepository = paymentRecordRepository;
         this.billingClient = billingClient;
     }
 
@@ -45,88 +49,108 @@ public class AdminRefundService {
                         new ResourceNotFoundException("Booking", bookingReference)
                 );
 
-        if (booking.getStatus() != BookingStatus.CANCELLED) {
+        if (booking.getStatus() != BookingStatus.CANCELLED
+                && booking.getStatus() != BookingStatus.REFUND_PENDING) {
             throw new BusinessException(
                     "Only cancelled bookings can be refunded"
             );
         }
 
-        var existingAudit = refundRepository.findByBookingId(booking.getId());
+        RefundAudit audit = refundRepository
+                .findByBookingId(booking.getId())
+                .orElse(null);
 
-        RefundAudit audit;
+        if (audit != null
+                && audit.getStatus() != PaymentStatus.FAILED
+                && audit.getStatus() != PaymentStatus.REFUND_PENDING) {
+            throw new BusinessException(
+                    "A refund has already been completed for this booking"
+            );
+        }
 
-        if (existingAudit.isPresent()) {
-            audit = existingAudit.get();
-
-            if (audit.getStatus() != PaymentStatus.FAILED) {
-                throw new BusinessException(
-                        "A refund request already exists for this booking"
+        PaymentRecord payment = paymentRecordRepository
+                .findByBooking_Id(booking.getId())
+                .orElseThrow(() ->
+                        new BusinessException(
+                                "Payment record was not found for this booking"
+                        )
                 );
-            }
 
-            audit.markPending();
-        } else {
+        if (payment.getStatus() != PaymentStatus.SUCCESS
+                || payment.getRazorpayPaymentId() == null
+                || payment.getRazorpayPaymentId().isBlank()) {
+            throw new BusinessException(
+                    "A successful Razorpay payment is required for refund"
+            );
+        }
+
+        if (audit == null) {
             audit = refundRepository.save(
                     RefundAudit.create(booking, reason.trim())
             );
+        } else {
+            audit.markPending();
         }
 
-        int updated = bookingRepository.updateBookingStatus(
-                booking.getId(),
-                BookingStatus.CANCELLED,
-                BookingStatus.REFUND_PENDING
-        );
-
-        if (updated != 1) {
-            throw new BusinessException(
-                    "Unable to update booking refund status"
+        if (booking.getStatus() == BookingStatus.CANCELLED) {
+            int updated = bookingRepository.updateBookingStatus(
+                    booking.getId(),
+                    BookingStatus.CANCELLED,
+                    BookingStatus.REFUND_PENDING
             );
+
+            if (updated != 1) {
+                throw new BusinessException(
+                        "Unable to update booking refund status"
+                );
+            }
         }
+
+        BillingRefundResponse billingResponse;
 
         try {
-            BillingRefundResponse billingResponse = billingClient.refund(
+            billingResponse = billingClient.refund(
                     new BillingRefundRequest(
                             booking.getBookingReference(),
-                            booking.getTotalAmount(),
-                            reason.trim()
+                            payment.getRazorpayPaymentId(),
+                            audit.getAmount(),
+                            audit.getReason()
                     )
             );
-
-            if (billingResponse == null || !billingResponse.successful()) {
-                String message = billingResponse == null
-                        ? "Billing service returned an empty response"
-                        : billingResponse.message();
-
-                audit.markFailed(message);
-
-                bookingRepository.updateBookingStatus(
-                        booking.getId(),
-                        BookingStatus.REFUND_PENDING,
-                        BookingStatus.CANCELLED
-                );
-            } else {
-                audit.markRefunded(billingResponse.refundReference());
-
-                int completed = bookingRepository.updateBookingStatus(
-                        booking.getId(),
-                        BookingStatus.REFUND_PENDING,
-                        BookingStatus.REFUNDED
-                );
-
-                if (completed != 1) {
-                    throw new BusinessException(
-                            "Unable to complete booking refund status"
-                    );
-                }
-            }
         } catch (RuntimeException exception) {
-            audit.markFailed(exception.getMessage());
+            audit.markPending();
+            return toResponse(audit);
+        }
+
+        if (billingResponse == null) {
+            audit.markPending();
+            return toResponse(audit);
+        }
+
+        if ("SUCCEEDED".equalsIgnoreCase(billingResponse.status())) {
+            audit.markRefunded(billingResponse.refundReference());
+
+            int completed = bookingRepository.updateBookingStatus(
+                    booking.getId(),
+                    BookingStatus.REFUND_PENDING,
+                    BookingStatus.REFUNDED
+            );
+
+            if (completed != 1) {
+                throw new BusinessException(
+                        "Unable to complete booking refund status"
+                );
+            }
+        } else if ("FAILED".equalsIgnoreCase(billingResponse.status())) {
+            audit.markFailed(billingResponse.message());
 
             bookingRepository.updateBookingStatus(
                     booking.getId(),
                     BookingStatus.REFUND_PENDING,
                     BookingStatus.CANCELLED
             );
+        } else {
+            audit.markPending();
         }
 
         return toResponse(audit);

@@ -14,13 +14,19 @@ public record RefundResponse(
         Instant createdAt
 ) {
     public static RefundResponse from(Refund refund) {
+        String message = switch (refund.getStatus()) {
+            case PENDING -> "Refund is being processed by Razorpay";
+            case SUCCEEDED -> "Refund processed successfully";
+            case FAILED -> "Razorpay could not process the refund";
+        };
+
         return new RefundResponse(
                 refund.getStatus() == RefundStatus.SUCCEEDED,
                 refund.getBookingReference(),
                 refund.getRefundReference(),
                 refund.getAmount(),
                 refund.getStatus().name(),
-                "Refund recorded successfully",
+                message,
                 refund.getCreatedAt()
         );
     }
