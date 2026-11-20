@@ -20,6 +20,7 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.springframework.context.ApplicationEventPublisher;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -185,10 +186,25 @@ class BookingLifecycleServiceTest {
         }
 
         @Test
-        void expiredPendingBookingShouldMoveToRefundPending() {
+        void expiredPendingBookingShouldUpdateReloadedBookingAfterTicketRelease() {
                 when(booking.getStatus()).thenReturn(BookingStatus.PENDING);
                 when(booking.getExpiresAt()).thenReturn(
                                 Instant.now().minusSeconds(60));
+
+                Booking reloadedBooking = Booking.create(
+                                user,
+                                event,
+                                2,
+                                BigDecimal.TEN,
+                                Instant.now().plusSeconds(600)
+                );
+                reloadedBooking.expire();
+
+                when(bookingRepository.findByBookingReferenceForUpdate(bookingReference))
+                                .thenReturn(
+                                        Optional.of(booking),
+                                        Optional.of(reloadedBooking)
+                                );
 
                 when(ticketRepository.releaseTicketsForBooking(
                                 10L,
@@ -200,7 +216,12 @@ class BookingLifecycleServiceTest {
                 verify(ticketRepository).releaseTicketsForBooking(
                                 10L,
                                 List.of(TicketStatus.RESERVED));
-                verify(booking).markRefundPending();
+                verify(reloadedBooking).markRefundPending();
+                verify(bookingRepository).save(reloadedBooking);
+                org.junit.jupiter.api.Assertions.assertEquals(
+                        BookingStatus.REFUND_PENDING,
+                        reloadedBooking.getStatus()
+                );
         }
 
         @Test
