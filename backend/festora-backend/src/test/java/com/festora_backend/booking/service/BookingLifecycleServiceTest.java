@@ -216,7 +216,8 @@ class BookingLifecycleServiceTest {
                 verify(ticketRepository).releaseTicketsForBooking(
                                 10L,
                                 List.of(TicketStatus.RESERVED));
-                verify(reloadedBooking).markRefundPending();
+                verify(bookingRepository, times(2))
+                        .findByBookingReferenceForUpdate(bookingReference);
                 verify(bookingRepository).save(reloadedBooking);
                 org.junit.jupiter.api.Assertions.assertEquals(
                         BookingStatus.REFUND_PENDING,
