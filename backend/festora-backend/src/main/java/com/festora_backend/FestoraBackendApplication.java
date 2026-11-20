@@ -1,13 +1,16 @@
+
 package com.festora_backend;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 @SpringBootApplication
+@EnableScheduling
 public class FestoraBackendApplication {
 
-	public static void main(String[] args) {
-		SpringApplication.run(FestoraBackendApplication.class, args);
-	}
-
+    public static void main(String[] args) {
+        SpringApplication.run(FestoraBackendApplication.class, args);
+    }
 }
+
