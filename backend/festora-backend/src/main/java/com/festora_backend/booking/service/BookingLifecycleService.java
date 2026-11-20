@@ -1,4 +1,6 @@
+
 package com.festora_backend.booking.service;
+
 import com.festora_backend.booking.entity.Booking;
 import com.festora_backend.booking.event.BookingCancelledEvent;
 import com.festora_backend.booking.event.BookingConfirmedEvent;
@@ -112,6 +114,12 @@ public class BookingLifecycleService {
                         "Unable to release all expired booking tickets"
                 );
             }
+
+            booking = bookingRepository
+                    .findByBookingReferenceForUpdate(bookingReference)
+                    .orElseThrow(() ->
+                            new ResourceNotFoundException("Booking", bookingReference)
+                    );
         } else if (booking.getStatus() != BookingStatus.EXPIRED) {
             throw new BusinessException(
                     "Only expired bookings can enter payment recovery"
@@ -119,6 +127,7 @@ public class BookingLifecycleService {
         }
 
         booking.markRefundPending();
+        bookingRepository.save(booking);
     }
 
     @Transactional
