@@ -17,8 +17,7 @@ import java.util.UUID;
     indexes = {
         @Index(name = "idx_booking_user", columnList = "user_id"),
         @Index(name = "idx_booking_event", columnList = "event_id"),
-        @Index(name = "idx_booking_status_expiry",
-                columnList = "status,expires_at")
+        @Index(name = "idx_booking_status_expiry", columnList = "status,expires_at")
     }
 )
 public class Booking {
@@ -74,9 +73,7 @@ public class Booking {
                 || totalAmount.signum() < 0
                 || expiresAt == null
                 || !expiresAt.isAfter(Instant.now())) {
-            throw new IllegalArgumentException(
-                    "Invalid booking details"
-            );
+            throw new IllegalArgumentException("Invalid booking details");
         }
 
         Booking booking = new Booking();
@@ -106,9 +103,7 @@ public class Booking {
     public void confirm() {
         if (status != BookingStatus.PENDING
                 || !expiresAt.isAfter(Instant.now())) {
-            throw new IllegalStateException(
-                    "Booking cannot be confirmed"
-            );
+            throw new IllegalStateException("Booking cannot be confirmed");
         }
 
         status = BookingStatus.CONFIRMED;
@@ -117,9 +112,7 @@ public class Booking {
     public void cancel() {
         if (status != BookingStatus.CONFIRMED
                 && status != BookingStatus.PENDING) {
-            throw new IllegalStateException(
-                    "Booking cannot be cancelled"
-            );
+            throw new IllegalStateException("Booking cannot be cancelled");
         }
 
         status = BookingStatus.CANCELLED;
@@ -127,22 +120,60 @@ public class Booking {
 
     public void expire() {
         if (status != BookingStatus.PENDING) {
-            throw new IllegalStateException(
-                    "Only pending bookings can expire"
-            );
+            throw new IllegalStateException("Only pending bookings can expire");
         }
 
         status = BookingStatus.EXPIRED;
     }
 
-    public Long getId() { return id; }
-    public UUID getBookingReference() { return bookingReference; }
-    public User getUser() { return user; }
-    public Event getEvent() { return event; }
-    public List<Ticket> getTickets() { return List.copyOf(tickets); }
-    public Integer getQuantity() { return quantity; }
-    public BigDecimal getTotalAmount() { return totalAmount; }
-    public BookingStatus getStatus() { return status; }
-    public Instant getExpiresAt() { return expiresAt; }
-    public Instant getCreatedAt() { return createdAt; }
+    public void markRefundPending() {
+        if (status != BookingStatus.EXPIRED
+                && status != BookingStatus.REFUND_PENDING) {
+            throw new IllegalStateException(
+                    "Only expired bookings can enter payment recovery"
+            );
+        }
+
+        status = BookingStatus.REFUND_PENDING;
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public UUID getBookingReference() {
+        return bookingReference;
+    }
+
+    public User getUser() {
+        return user;
+    }
+
+    public Event getEvent() {
+        return event;
+    }
+
+    public List<Ticket> getTickets() {
+        return List.copyOf(tickets);
+    }
+
+    public Integer getQuantity() {
+        return quantity;
+    }
+
+    public BigDecimal getTotalAmount() {
+        return totalAmount;
+    }
+
+    public BookingStatus getStatus() {
+        return status;
+    }
+
+    public Instant getExpiresAt() {
+        return expiresAt;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
 }
