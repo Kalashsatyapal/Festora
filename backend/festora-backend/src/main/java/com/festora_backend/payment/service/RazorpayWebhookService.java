@@ -1,7 +1,9 @@
+
 package com.festora_backend.payment.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.festora_backend.admin.service.AdminRefundService;
 import com.festora_backend.booking.entity.Booking;
 import com.festora_backend.booking.service.BookingLifecycleService;
 import com.festora_backend.common.enums.BookingStatus;
@@ -28,6 +30,7 @@ public class RazorpayWebhookService {
     private final PaymentRecordRepository paymentRecordRepository;
     private final RazorpayWebhookEventRepository webhookEventRepository;
     private final BookingLifecycleService bookingLifecycleService;
+    private final AdminRefundService adminRefundService;
     private final String webhookSecret;
 
     public RazorpayWebhookService(
@@ -35,12 +38,14 @@ public class RazorpayWebhookService {
             PaymentRecordRepository paymentRecordRepository,
             RazorpayWebhookEventRepository webhookEventRepository,
             BookingLifecycleService bookingLifecycleService,
+            AdminRefundService adminRefundService,
             @Value("${festora.razorpay.webhook-secret}") String webhookSecret
     ) {
         this.objectMapper = objectMapper;
         this.paymentRecordRepository = paymentRecordRepository;
         this.webhookEventRepository = webhookEventRepository;
         this.bookingLifecycleService = bookingLifecycleService;
+        this.adminRefundService = adminRefundService;
         this.webhookSecret = webhookSecret;
     }
 
@@ -98,7 +103,7 @@ public class RazorpayWebhookService {
         if (paymentId.isBlank()
                 || orderId.isBlank()
                 || !"captured".equalsIgnoreCase(status)
-                || amount < 0
+                || amount <= 0
                 || currency.isBlank()) {
             throw new BusinessException("Invalid captured payment details");
         }
@@ -124,19 +129,43 @@ public class RazorpayWebhookService {
                         "A different payment is already linked to this order"
                 );
             }
-            return;
+        } else {
+            payment.markSuccessful(paymentId);
         }
-
-        payment.markSuccessful(paymentId);
 
         Booking booking = payment.getBooking();
 
-        if (booking.getStatus() == BookingStatus.PENDING
-                && booking.getExpiresAt().isAfter(Instant.now())) {
-            bookingLifecycleService.confirmAfterPayment(
+        if (booking.getStatus() == BookingStatus.CONFIRMED
+                || booking.getStatus() == BookingStatus.REFUNDED) {
+            return;
+        }
+
+        if (booking.getStatus() == BookingStatus.PENDING) {
+            if (booking.getExpiresAt().isAfter(Instant.now())) {
+                bookingLifecycleService.confirmAfterPayment(
+                        booking.getBookingReference()
+                );
+                return;
+            }
+
+            bookingLifecycleService.markExpiredPaymentForRefund(
                     booking.getBookingReference()
             );
+        } else if (booking.getStatus() == BookingStatus.EXPIRED) {
+            bookingLifecycleService.markExpiredPaymentForRefund(
+                    booking.getBookingReference()
+            );
+        } else if (booking.getStatus() != BookingStatus.REFUND_PENDING
+                && booking.getStatus() != BookingStatus.CANCELLED) {
+            throw new BusinessException(
+                    "Booking cannot be processed for captured payment recovery"
+            );
         }
+
+        adminRefundService.initiateRefund(
+                booking.getBookingReference(),
+                "Payment captured after reservation expired or booking was cancelled"
+        );
     }
 
     private void verifySignature(

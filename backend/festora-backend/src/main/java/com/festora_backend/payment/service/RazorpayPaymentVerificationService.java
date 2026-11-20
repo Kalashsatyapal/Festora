@@ -1,6 +1,8 @@
+
 package com.festora_backend.payment.service;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.festora_backend.admin.service.AdminRefundService;
 import com.festora_backend.booking.entity.Booking;
 import com.festora_backend.booking.repository.BookingRepository;
 import com.festora_backend.booking.service.BookingLifecycleService;
@@ -14,6 +16,7 @@ import com.festora_backend.payment.entity.PaymentRecord;
 import com.festora_backend.payment.repository.PaymentRecordRepository;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.time.Instant;
 import java.util.HexFormat;
 import java.util.UUID;
 import javax.crypto.Mac;
@@ -30,6 +33,7 @@ public class RazorpayPaymentVerificationService {
     private final BookingRepository bookingRepository;
     private final PaymentRecordRepository paymentRecordRepository;
     private final BookingLifecycleService bookingLifecycleService;
+    private final AdminRefundService adminRefundService;
     private final RestClient restClient;
     private final String keyId;
     private final String keySecret;
@@ -38,6 +42,7 @@ public class RazorpayPaymentVerificationService {
             BookingRepository bookingRepository,
             PaymentRecordRepository paymentRecordRepository,
             BookingLifecycleService bookingLifecycleService,
+            AdminRefundService adminRefundService,
             RestClient.Builder restClientBuilder,
             @Value("${festora.razorpay.key-id}") String keyId,
             @Value("${festora.razorpay.key-secret}") String keySecret
@@ -45,6 +50,7 @@ public class RazorpayPaymentVerificationService {
         this.bookingRepository = bookingRepository;
         this.paymentRecordRepository = paymentRecordRepository;
         this.bookingLifecycleService = bookingLifecycleService;
+        this.adminRefundService = adminRefundService;
         this.restClient = restClientBuilder
                 .baseUrl("https://api.razorpay.com")
                 .build();
@@ -96,26 +102,15 @@ public class RazorpayPaymentVerificationService {
 
         if (payment.getStatus() == PaymentStatus.SUCCESS) {
             if (!request.razorpayPaymentId()
-                    .equals(payment.getRazorpayPaymentId())
-                    || booking.getStatus() != BookingStatus.CONFIRMED) {
+                    .equals(payment.getRazorpayPaymentId())) {
                 throw new BusinessException(
                         "Payment verification state is inconsistent"
                 );
             }
 
+            processSuccessfulPayment(booking);
+
             return response(booking, payment);
-        }
-
-        if (booking.getStatus() != BookingStatus.PENDING) {
-            throw new BusinessException(
-                    "This booking is not awaiting payment"
-            );
-        }
-
-        if (!booking.getExpiresAt().isAfter(java.time.Instant.now())) {
-            throw new BusinessException(
-                    "The booking reservation has expired"
-            );
         }
 
         RazorpayPayment razorpayPayment = fetchPayment(
@@ -140,9 +135,45 @@ public class RazorpayPaymentVerificationService {
 
         payment.markSuccessful(request.razorpayPaymentId());
 
-        bookingLifecycleService.confirmAfterPayment(bookingReference);
+        processSuccessfulPayment(booking);
 
         return response(booking, payment);
+    }
+
+    private void processSuccessfulPayment(Booking booking) {
+        BookingStatus status = booking.getStatus();
+
+        if (status == BookingStatus.CONFIRMED
+                || status == BookingStatus.REFUNDED) {
+            return;
+        }
+
+        if (status == BookingStatus.PENDING) {
+            if (booking.getExpiresAt().isAfter(Instant.now())) {
+                bookingLifecycleService.confirmAfterPayment(
+                        booking.getBookingReference()
+                );
+                return;
+            }
+
+            bookingLifecycleService.markExpiredPaymentForRefund(
+                    booking.getBookingReference()
+            );
+        } else if (status == BookingStatus.EXPIRED) {
+            bookingLifecycleService.markExpiredPaymentForRefund(
+                    booking.getBookingReference()
+            );
+        } else if (status != BookingStatus.REFUND_PENDING
+                && status != BookingStatus.CANCELLED) {
+            throw new BusinessException(
+                    "Booking cannot be processed for captured payment recovery"
+            );
+        }
+
+        adminRefundService.initiateRefund(
+                booking.getBookingReference(),
+                "Payment captured after reservation expired or booking was cancelled"
+        );
     }
 
     private void verifySignature(
@@ -150,6 +181,13 @@ public class RazorpayPaymentVerificationService {
             String paymentId,
             String receivedSignature
     ) {
+        if (receivedSignature == null
+                || !receivedSignature.matches("(?i)^[a-f0-9]{64}$")) {
+            throw new BusinessException(
+                    "Invalid payment signature"
+            );
+        }
+
         try {
             Mac mac = Mac.getInstance("HmacSHA256");
 

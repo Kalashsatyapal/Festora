@@ -1,5 +1,7 @@
+
 package com.festora_backend.payment.controller;
 
+import com.festora_backend.common.exception.BusinessException;
 import com.festora_backend.payment.service.RazorpayWebhookService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -41,14 +43,22 @@ public class RazorpayWebhookController {
             );
 
             return ResponseEntity.ok().build();
+
+        } catch (BusinessException exception) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Invalid webhook request"
+            );
+
         } catch (IllegalStateException exception) {
             throw new ResponseStatusException(
                     HttpStatus.INTERNAL_SERVER_ERROR,
                     "Webhook endpoint is not configured"
             );
+
         } catch (RuntimeException exception) {
             throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
+                    HttpStatus.INTERNAL_SERVER_ERROR,
                     "Webhook processing failed"
             );
         }
