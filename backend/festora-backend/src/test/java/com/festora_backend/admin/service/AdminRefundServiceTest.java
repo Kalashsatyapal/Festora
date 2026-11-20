@@ -1,3 +1,4 @@
+
 package com.festora_backend.admin.service;
 
 import com.festora_backend.admin.dto.BillingRefundRequest;
@@ -9,6 +10,8 @@ import com.festora_backend.booking.repository.BookingRepository;
 import com.festora_backend.common.enums.BookingStatus;
 import com.festora_backend.common.enums.PaymentStatus;
 import com.festora_backend.common.exception.BusinessException;
+import com.festora_backend.payment.entity.PaymentRecord;
+import com.festora_backend.payment.repository.PaymentRecordRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -39,6 +42,9 @@ class AdminRefundServiceTest {
     private RefundAuditRepository refundRepository;
 
     @Mock
+    private PaymentRecordRepository paymentRecordRepository;
+
+    @Mock
     private BillingClient billingClient;
 
     @Mock
@@ -46,6 +52,9 @@ class AdminRefundServiceTest {
 
     @Mock
     private RefundAudit audit;
+
+    @Mock
+    private PaymentRecord payment;
 
     @InjectMocks
     private AdminRefundService refundService;
@@ -61,6 +70,11 @@ class AdminRefundServiceTest {
         when(booking.getId()).thenReturn(10L);
         when(booking.getBookingReference()).thenReturn(bookingReference);
         when(booking.getTotalAmount()).thenReturn(new BigDecimal("1200.00"));
+
+        when(paymentRecordRepository.findByBooking_Id(10L))
+                .thenReturn(Optional.of(payment));
+        when(payment.getStatus()).thenReturn(PaymentStatus.SUCCESS);
+        when(payment.getRazorpayPaymentId()).thenReturn("pay_test_123");
 
         when(audit.getBooking()).thenReturn(booking);
         when(audit.getAmount()).thenReturn(new BigDecimal("1200.00"));
@@ -87,6 +101,7 @@ class AdminRefundServiceTest {
                 .thenReturn(new BillingRefundResponse(
                         true,
                         "REF-123",
+                        "SUCCEEDED",
                         "Refund successful"
                 ));
 
@@ -111,7 +126,7 @@ class AdminRefundServiceTest {
     }
 
     @Test
-    void failedRefundShouldBeMarkedFailedAndAllowRetry() {
+    void uncertainRefundShouldRemainPending() {
         when(refundRepository.findByBookingId(10L))
                 .thenReturn(Optional.empty());
 
@@ -121,22 +136,22 @@ class AdminRefundServiceTest {
         when(billingClient.refund(any(BillingRefundRequest.class)))
                 .thenThrow(new RuntimeException("Billing unavailable"));
 
-        when(bookingRepository.updateBookingStatus(
-                10L,
-                BookingStatus.REFUND_PENDING,
-                BookingStatus.CANCELLED
-        )).thenReturn(1);
-
-        when(audit.getStatus()).thenReturn(PaymentStatus.FAILED);
+        when(audit.getStatus()).thenReturn(PaymentStatus.REFUND_PENDING);
 
         var response = refundService.initiateRefund(
                 bookingReference,
                 "Customer cancellation"
         );
 
-        assertEquals("FAILED", response.status());
+        assertEquals("REFUND_PENDING", response.status());
 
-        verify(audit).markFailed("Billing unavailable");
+        verify(audit).markPending();
+        verify(audit, never()).markFailed(any());
+        verify(bookingRepository, never()).updateBookingStatus(
+                10L,
+                BookingStatus.REFUND_PENDING,
+                BookingStatus.CANCELLED
+        );
     }
 
     @Test
@@ -153,6 +168,7 @@ class AdminRefundServiceTest {
                 .thenReturn(new BillingRefundResponse(
                         true,
                         "REF-123",
+                        "SUCCEEDED",
                         "Refund successful"
                 ));
 
@@ -177,6 +193,33 @@ class AdminRefundServiceTest {
     }
 
     @Test
+    void refundShouldRetryPendingRefund() {
+        when(refundRepository.findByBookingId(10L))
+                .thenReturn(Optional.of(audit));
+
+        when(audit.getStatus()).thenReturn(PaymentStatus.REFUND_PENDING);
+
+        when(billingClient.refund(any(BillingRefundRequest.class)))
+                .thenReturn(new BillingRefundResponse(
+                        false,
+                        null,
+                        "PENDING",
+                        "Refund is being processed"
+                ));
+
+        var response = refundService.initiateRefund(
+                bookingReference,
+                "Customer cancellation"
+        );
+
+        assertEquals("REFUND_PENDING", response.status());
+
+        verify(billingClient).refund(any(BillingRefundRequest.class));
+        verify(audit, org.mockito.Mockito.times(2)).markPending();
+        verify(refundRepository, never()).save(any(RefundAudit.class));
+    }
+
+    @Test
     void refundShouldRejectConfirmedBookings() {
         when(booking.getStatus()).thenReturn(BookingStatus.CONFIRMED);
 
@@ -190,24 +233,6 @@ class AdminRefundServiceTest {
 
         verifyNoInteractions(billingClient);
         verify(refundRepository, never()).save(any(RefundAudit.class));
-    }
-
-    @Test
-    void refundShouldRejectExistingPendingRefund() {
-        when(refundRepository.findByBookingId(10L))
-                .thenReturn(Optional.of(audit));
-
-        when(audit.getStatus()).thenReturn(PaymentStatus.REFUND_PENDING);
-
-        assertThrows(
-                BusinessException.class,
-                () -> refundService.initiateRefund(
-                        bookingReference,
-                        "Customer cancellation"
-                )
-        );
-
-        verifyNoInteractions(billingClient);
-        verify(audit, never()).markPending();
+        verifyNoInteractions(paymentRecordRepository);
     }
 }

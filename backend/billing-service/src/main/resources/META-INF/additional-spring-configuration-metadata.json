@@ -8,5 +8,15 @@
     "name": "management.endpoints.web.exposure.include",
     "type": "java.lang.String",
     "description": "A description for 'management.endpoints.web.exposure.include'"
+  },
+  {
+    "name": "festora.razorpay.key-secret",
+    "type": "java.lang.String",
+    "description": "A description for 'festora.razorpay.key-secret'"
+  },
+  {
+    "name": "festora.razorpay.key-id",
+    "type": "java.lang.String",
+    "description": "A description for 'festora.razorpay.key-id'"
   }
 ]}

@@ -1,14 +1,14 @@
+
 package com.festora.billing.refund;
 
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpStatusCode;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
-import java.math.BigDecimal;
 import java.util.Map;
 
 @Service
@@ -42,6 +42,24 @@ public class RefundService {
             );
         }
 
+        long amountPaise;
+
+        try {
+            amountPaise = request.amount()
+                    .movePointRight(2)
+                    .longValueExact();
+        } catch (ArithmeticException exception) {
+            throw new IllegalArgumentException(
+                    "Refund amount must have no more than two decimal places"
+            );
+        }
+
+        if (amountPaise < 100) {
+            throw new IllegalArgumentException(
+                    "Refund amount must be at least ₹1.00"
+            );
+        }
+
         Refund refund = refundRepository
                 .findByBookingReference(request.bookingReference())
                 .orElseGet(() -> refundRepository.saveAndFlush(
@@ -55,25 +73,12 @@ public class RefundService {
 
         validateExistingRefund(refund, request);
 
-        if (refund.getStatus() == RefundStatus.SUCCEEDED
-                || refund.getStatus() == RefundStatus.FAILED) {
+        if (refund.getStatus() == RefundStatus.SUCCEEDED) {
             return RefundResponse.from(refund);
         }
 
-        long amountPaise;
-
-        try {
-            amountPaise = request.amount()
-                    .movePointRight(2)
-                    .longValueExact();
-        } catch (ArithmeticException exception) {
-            refund.markFailed("Invalid refund amount");
-            return RefundResponse.from(refund);
-        }
-
-        if (amountPaise < 100) {
-            refund.markFailed("Refund amount must be at least ₹1.00");
-            return RefundResponse.from(refund);
+        if (refund.getStatus() == RefundStatus.FAILED) {
+            refund.prepareRetry();
         }
 
         Map<String, Object> body = Map.of(
@@ -97,7 +102,7 @@ public class RefundService {
                         headers.setBasicAuth(keyId, keySecret);
                         headers.set(
                                 "X-Refund-Idempotency",
-                                request.bookingReference().toString()
+                                refund.getIdempotencyKey()
                         );
                     })
                     .body(body)
@@ -119,15 +124,22 @@ public class RefundService {
                 case "processed" ->
                         refund.markSucceeded(response.id());
                 case "failed" ->
-                        refund.markFailed("Razorpay reported refund failure");
+                        refund.markFailed(
+                                "Razorpay reported refund failure"
+                        );
                 default -> refund.markPending();
             }
 
         } catch (RestClientResponseException exception) {
-            HttpStatusCode status = exception.getStatusCode();
+            HttpStatus status = HttpStatus.valueOf(
+                    exception.getStatusCode().value()
+            );
 
-            if (status.is4xxClientError()
-                    && status.value() != 409) {
+            if (status == HttpStatus.BAD_REQUEST
+                    || status == HttpStatus.UNAUTHORIZED
+                    || status == HttpStatus.FORBIDDEN
+                    || status == HttpStatus.NOT_FOUND
+                    || status == HttpStatus.UNPROCESSABLE_ENTITY) {
                 refund.markFailed(
                         "Razorpay rejected the refund request"
                 );

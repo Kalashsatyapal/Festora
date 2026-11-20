@@ -1,3 +1,4 @@
+
 package com.festora.billing.refund;
 
 import jakarta.persistence.*;
@@ -30,6 +31,9 @@ public class Refund {
 
     @Column(name = "refund_reference", unique = true, length = 100)
     private String refundReference;
+
+    @Column(name = "idempotency_key", nullable = false, length = 100)
+    private String idempotencyKey;
 
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal amount;
@@ -64,8 +68,22 @@ public class Refund {
         refund.razorpayPaymentId = razorpayPaymentId;
         refund.amount = amount;
         refund.reason = reason;
+        refund.idempotencyKey = UUID.randomUUID().toString();
         refund.status = RefundStatus.PENDING;
         return refund;
+    }
+
+    public void prepareRetry() {
+        if (status != RefundStatus.FAILED) {
+            throw new IllegalStateException(
+                    "Only failed refunds can start a new attempt"
+            );
+        }
+
+        this.idempotencyKey = UUID.randomUUID().toString();
+        this.status = RefundStatus.PENDING;
+        this.failureReason = null;
+        this.refundReference = null;
     }
 
     public void markSucceeded(String refundReference) {
@@ -110,6 +128,10 @@ public class Refund {
 
     public String getRefundReference() {
         return refundReference;
+    }
+
+    public String getIdempotencyKey() {
+        return idempotencyKey;
     }
 
     public BigDecimal getAmount() {
