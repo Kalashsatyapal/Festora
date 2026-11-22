@@ -20,10 +20,13 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.springframework.context.ApplicationEventPublisher;
 
+import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import java.time.Instant;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
@@ -32,204 +35,272 @@ import static org.mockito.Mockito.*;
 @MockitoSettings(strictness = Strictness.LENIENT)
 class BookingLifecycleServiceTest {
 
-        @Mock
-        private BookingRepository bookingRepository;
+    @Mock
+    private BookingRepository bookingRepository;
 
-        @Mock
-        private TicketRepository ticketRepository;
+    @Mock
+    private TicketRepository ticketRepository;
 
-        @Mock
-        private ApplicationEventPublisher eventPublisher;
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
-        @Mock
-        private Booking booking;
+    @Mock
+    private Booking booking;
 
-        @Mock
-        private User user;
+    @Mock
+    private User user;
 
-        @Mock
-        private Event event;
+    @Mock
+    private Event event;
 
-        @Mock
-        private Ticket ticket1;
+    @Mock
+    private Ticket ticket1;
 
-        @Mock
-        private Ticket ticket2;
+    @Mock
+    private Ticket ticket2;
 
-        private BookingLifecycleService lifecycleService;
-        private UUID bookingReference;
+    private BookingLifecycleService lifecycleService;
+    private UUID bookingReference;
 
-        @BeforeEach
-        void setUp() {
-                lifecycleService = new BookingLifecycleService(
-                                bookingRepository,
-                                ticketRepository,
-                                eventPublisher);
+    @BeforeEach
+    void setUp() {
+        lifecycleService = new BookingLifecycleService(
+                bookingRepository,
+                ticketRepository,
+                eventPublisher
+        );
 
-                bookingReference = UUID.randomUUID();
+        bookingReference = UUID.randomUUID();
 
-                when(bookingRepository.findByBookingReferenceForUpdate(bookingReference))
-                                .thenReturn(Optional.of(booking));
+        when(bookingRepository.findByBookingReferenceForUpdate(bookingReference))
+                .thenReturn(Optional.of(booking));
 
-                when(booking.getId()).thenReturn(10L);
-                when(booking.getBookingReference()).thenReturn(bookingReference);
-                when(booking.getQuantity()).thenReturn(2);
-                when(booking.getUser()).thenReturn(user);
-                when(booking.getEvent()).thenReturn(event);
-                when(user.getId()).thenReturn(20L);
-                when(event.getId()).thenReturn(30L);
-        }
+        when(booking.getId()).thenReturn(10L);
+        when(booking.getBookingReference()).thenReturn(bookingReference);
+        when(booking.getQuantity()).thenReturn(2);
+        when(booking.getUser()).thenReturn(user);
+        when(booking.getEvent()).thenReturn(event);
+        when(user.getId()).thenReturn(20L);
+        when(event.getId()).thenReturn(30L);
+    }
 
-        @Test
-        void cancellationShouldReleaseAllBookingTickets() {
-                when(booking.getStatus()).thenReturn(BookingStatus.PENDING);
+    @Test
+    void cancellationShouldReleaseAllBookingTickets() {
+        when(booking.getStatus()).thenReturn(BookingStatus.PENDING);
 
-                when(ticketRepository.releaseTicketsForBooking(
-                                eq(10L),
-                                eq(List.of(TicketStatus.RESERVED, TicketStatus.SOLD)))).thenReturn(2);
+        when(ticketRepository.releaseTicketsForBooking(
+                eq(10L),
+                eq(List.of(TicketStatus.RESERVED))
+        )).thenReturn(2);
 
-                lifecycleService.cancelBooking(
-                                bookingReference,
-                                "user@test.com",
-                                20L);
+        lifecycleService.cancelBooking(
+                bookingReference,
+                "user@test.com",
+                20L
+        );
 
-                verify(booking).cancel();
+        verify(booking).cancel();
 
-                verify(ticketRepository).releaseTicketsForBooking(
-                                10L,
-                                List.of(TicketStatus.RESERVED, TicketStatus.SOLD));
+        verify(ticketRepository).releaseTicketsForBooking(
+                10L,
+                List.of(TicketStatus.RESERVED)
+        );
 
-                verify(eventPublisher).publishEvent(
-                                new BookingCancelledEvent(bookingReference, 20L, 30L));
-        }
+        verify(eventPublisher).publishEvent(
+                new BookingCancelledEvent(bookingReference, 20L, 30L)
+        );
+    }
 
-        @Test
-        void cancellationShouldFailWhenNotAllTicketsAreReleased() {
-                when(booking.getStatus()).thenReturn(BookingStatus.CONFIRMED);
+    @Test
+    void cancellationShouldFailWhenNotAllTicketsAreReleased() {
+        when(booking.getStatus()).thenReturn(BookingStatus.PENDING);
 
-                when(ticketRepository.releaseTicketsForBooking(
-                                eq(10L),
-                                anyList())).thenReturn(1);
+        when(ticketRepository.releaseTicketsForBooking(
+                eq(10L),
+                anyList()
+        )).thenReturn(1);
 
-                assertThrows(
-                                BusinessException.class,
-                                () -> lifecycleService.cancelBooking(
-                                                bookingReference,
-                                                "user@test.com",
-                                                20L));
+        assertThrows(
+                BusinessException.class,
+                () -> lifecycleService.cancelBooking(
+                        bookingReference,
+                        "user@test.com",
+                        20L
+                )
+        );
 
-                verify(eventPublisher, never()).publishEvent(any());
-        }
+        verify(eventPublisher, never()).publishEvent(any());
+    }
 
-        @Test
-        void cancellationShouldRejectAnotherUsersBooking() {
-                when(booking.getUser()).thenReturn(user);
-                when(user.getId()).thenReturn(99L);
+    @Test
+    void confirmedBookingShouldNotBeCancelledOrReleaseSoldTickets() {
+        when(booking.getStatus()).thenReturn(BookingStatus.CONFIRMED);
 
-                assertThrows(
-                                BusinessException.class,
-                                () -> lifecycleService.cancelBooking(
-                                                bookingReference,
-                                                "other@test.com",
-                                                20L));
+        assertThrows(
+                BusinessException.class,
+                () -> lifecycleService.cancelBooking(
+                        bookingReference,
+                        "user@test.com",
+                        20L
+                )
+        );
 
-                verify(booking, never()).cancel();
-                verify(ticketRepository, never()).releaseTicketsForBooking(anyLong(), anyList());
-        }
+        verify(booking, never()).cancel();
 
-        @Test
-        void confirmationShouldConvertReservedTicketsToSold() {
-                when(booking.getStatus()).thenReturn(BookingStatus.PENDING);
+        verify(ticketRepository, never())
+                .releaseTicketsForBooking(anyLong(), anyList());
 
-                when(ticketRepository.findByBookingIdForUpdate(10L))
-                                .thenReturn(List.of(ticket1, ticket2));
+        verify(eventPublisher, never()).publishEvent(any());
+    }
 
-                when(ticket1.getStatus()).thenReturn(TicketStatus.RESERVED);
-                when(ticket2.getStatus()).thenReturn(TicketStatus.RESERVED);
+    @Test
+    void cancellationShouldRejectAnotherUsersBooking() {
+        when(user.getId()).thenReturn(99L);
 
-                lifecycleService.confirmAfterPayment(bookingReference);
+        assertThrows(
+                BusinessException.class,
+                () -> lifecycleService.cancelBooking(
+                        bookingReference,
+                        "other@test.com",
+                        20L
+                )
+        );
 
-                verify(booking).confirm();
-                verify(ticket1).confirmSale();
-                verify(ticket2).confirmSale();
-                verify(ticketRepository).saveAll(List.of(ticket1, ticket2));
+        verify(booking, never()).cancel();
+        verify(ticketRepository, never())
+                .releaseTicketsForBooking(anyLong(), anyList());
+    }
 
-                verify(eventPublisher).publishEvent(
-                                new BookingConfirmedEvent(bookingReference, 20L, 30L));
-        }
+    @Test
+    void confirmationShouldConvertReservedTicketsToSold() {
+        when(booking.getStatus()).thenReturn(BookingStatus.PENDING);
 
-        @Test
-        void confirmationShouldRejectIncompleteTicketInventory() {
-                when(booking.getStatus()).thenReturn(BookingStatus.PENDING);
+        when(ticketRepository.findByBookingIdForUpdate(10L))
+                .thenReturn(List.of(ticket1, ticket2));
 
-                when(ticketRepository.findByBookingIdForUpdate(10L))
-                                .thenReturn(List.of(ticket1));
+        when(ticket1.getStatus()).thenReturn(TicketStatus.RESERVED);
+        when(ticket2.getStatus()).thenReturn(TicketStatus.RESERVED);
 
-                assertThrows(
-                                BusinessException.class,
-                                () -> lifecycleService.confirmAfterPayment(bookingReference));
+        lifecycleService.confirmAfterPayment(bookingReference);
 
-                verify(booking, never()).confirm();
-                verify(eventPublisher, never()).publishEvent(any());
-        }
+        verify(booking).confirm();
+        verify(ticket1).confirmSale();
+        verify(ticket2).confirmSale();
 
-        @Test
-        void confirmationShouldRejectNonPendingBooking() {
-                when(booking.getStatus()).thenReturn(BookingStatus.CANCELLED);
+        verify(ticketRepository).saveAll(List.of(ticket1, ticket2));
 
-                assertThrows(
-                                BusinessException.class,
-                                () -> lifecycleService.confirmAfterPayment(bookingReference));
+        verify(eventPublisher).publishEvent(
+                new BookingConfirmedEvent(bookingReference, 20L, 30L)
+        );
+    }
 
-                verify(ticketRepository, never()).findByBookingIdForUpdate(anyLong());
-        }
+    @Test
+    void confirmationShouldRejectIncompleteTicketInventory() {
+        when(booking.getStatus()).thenReturn(BookingStatus.PENDING);
 
-        @Test
-        void expiredPendingBookingShouldMoveToRefundPending() {
-                when(booking.getStatus()).thenReturn(BookingStatus.PENDING);
-                when(booking.getExpiresAt()).thenReturn(
-                                Instant.now().minusSeconds(60));
+        when(ticketRepository.findByBookingIdForUpdate(10L))
+                .thenReturn(List.of(ticket1));
 
-                when(ticketRepository.releaseTicketsForBooking(
-                                10L,
-                                List.of(TicketStatus.RESERVED))).thenReturn(2);
+        assertThrows(
+                BusinessException.class,
+                () -> lifecycleService.confirmAfterPayment(bookingReference)
+        );
 
-                lifecycleService.markExpiredPaymentForRefund(bookingReference);
+        verify(booking, never()).confirm();
+        verify(eventPublisher, never()).publishEvent(any());
+    }
 
-                verify(booking).expire();
-                verify(ticketRepository).releaseTicketsForBooking(
-                                10L,
-                                List.of(TicketStatus.RESERVED));
-                verify(booking).markRefundPending();
-        }
+    @Test
+    void confirmationShouldRejectNonPendingBooking() {
+        when(booking.getStatus()).thenReturn(BookingStatus.CANCELLED);
 
-        @Test
-        void alreadyExpiredBookingShouldMoveToRefundPendingWithoutReleasingAgain() {
-                when(booking.getStatus()).thenReturn(BookingStatus.EXPIRED);
+        assertThrows(
+                BusinessException.class,
+                () -> lifecycleService.confirmAfterPayment(bookingReference)
+        );
 
-                lifecycleService.markExpiredPaymentForRefund(bookingReference);
+        verify(ticketRepository, never())
+                .findByBookingIdForUpdate(anyLong());
+    }
 
-                verify(booking).markRefundPending();
-                verify(ticketRepository, never()).releaseTicketsForBooking(
-                                anyLong(),
-                                anyList());
-        }
+    @Test
+    void expiredPendingBookingShouldUpdateReloadedBookingAfterTicketRelease() {
+        when(booking.getStatus()).thenReturn(BookingStatus.PENDING);
+        when(booking.getExpiresAt()).thenReturn(
+                Instant.now().minusSeconds(60)
+        );
 
-        @Test
-        void unexpiredBookingShouldNotEnterPaymentRecovery() {
-                when(booking.getStatus()).thenReturn(BookingStatus.PENDING);
-                when(booking.getExpiresAt()).thenReturn(
-                                Instant.now().plusSeconds(300));
+        Booking reloadedBooking = Booking.create(
+                user,
+                event,
+                2,
+                BigDecimal.TEN,
+                Instant.now().plusSeconds(600)
+        );
 
-                assertThrows(
-                                BusinessException.class,
-                                () -> lifecycleService.markExpiredPaymentForRefund(
-                                                bookingReference));
+        reloadedBooking.expire();
 
-                verify(booking, never()).expire();
-                verify(booking, never()).markRefundPending();
-                verify(ticketRepository, never()).releaseTicketsForBooking(
-                                anyLong(),
-                                anyList());
-        }
+        when(bookingRepository.findByBookingReferenceForUpdate(bookingReference))
+                .thenReturn(
+                        Optional.of(booking),
+                        Optional.of(reloadedBooking)
+                );
+
+        when(ticketRepository.releaseTicketsForBooking(
+                10L,
+                List.of(TicketStatus.RESERVED)
+        )).thenReturn(2);
+
+        lifecycleService.markExpiredPaymentForRefund(bookingReference);
+
+        verify(booking).expire();
+
+        verify(ticketRepository).releaseTicketsForBooking(
+                10L,
+                List.of(TicketStatus.RESERVED)
+        );
+
+        verify(bookingRepository, times(2))
+                .findByBookingReferenceForUpdate(bookingReference);
+
+        verify(bookingRepository).save(reloadedBooking);
+
+        assertEquals(
+                BookingStatus.REFUND_PENDING,
+                reloadedBooking.getStatus()
+        );
+    }
+
+    @Test
+    void alreadyExpiredBookingShouldMoveToRefundPendingWithoutReleasingAgain() {
+        when(booking.getStatus()).thenReturn(BookingStatus.EXPIRED);
+
+        lifecycleService.markExpiredPaymentForRefund(bookingReference);
+
+        verify(booking).markRefundPending();
+
+        verify(ticketRepository, never())
+                .releaseTicketsForBooking(anyLong(), anyList());
+    }
+
+    @Test
+    void unexpiredBookingShouldNotEnterPaymentRecovery() {
+        when(booking.getStatus()).thenReturn(BookingStatus.PENDING);
+        when(booking.getExpiresAt()).thenReturn(
+                Instant.now().plusSeconds(300)
+        );
+
+        assertThrows(
+                BusinessException.class,
+                () -> lifecycleService.markExpiredPaymentForRefund(
+                        bookingReference
+                )
+        );
+
+        verify(booking, never()).expire();
+        verify(booking, never()).markRefundPending();
+
+        verify(ticketRepository, never())
+                .releaseTicketsForBooking(anyLong(), anyList());
+    }
 }

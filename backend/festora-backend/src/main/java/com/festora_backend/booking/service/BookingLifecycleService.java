@@ -169,47 +169,52 @@ public class BookingLifecycleService {
     }
 
     @Transactional
-    public void cancelBooking(
-            UUID bookingReference,
-            String email,
-            Long userId
-    ) {
-        Booking booking = bookingRepository
-                .findByBookingReferenceForUpdate(bookingReference)
-                .orElseThrow(() ->
-                        new ResourceNotFoundException("Booking", bookingReference)
-                );
-
-        if (!booking.getUser().getId().equals(userId)) {
-            throw new BusinessException(
-                    "You cannot cancel another user's booking"
+public void cancelBooking(
+        UUID bookingReference,
+        String email,
+        Long userId
+) {
+    Booking booking = bookingRepository
+            .findByBookingReferenceForUpdate(bookingReference)
+            .orElseThrow(() ->
+                    new ResourceNotFoundException("Booking", bookingReference)
             );
-        }
 
-        if (booking.getStatus() != BookingStatus.PENDING
-                && booking.getStatus() != BookingStatus.CONFIRMED) {
-            throw new BusinessException("This booking cannot be cancelled");
-        }
-
-        booking.cancel();
-
-        int released = ticketRepository.releaseTicketsForBooking(
-                booking.getId(),
-                List.of(TicketStatus.RESERVED, TicketStatus.SOLD)
-        );
-
-        if (released != booking.getQuantity()) {
-            throw new BusinessException(
-                    "Unable to release all booking tickets"
-            );
-        }
-
-        eventPublisher.publishEvent(
-                new BookingCancelledEvent(
-                        booking.getBookingReference(),
-                        booking.getUser().getId(),
-                        booking.getEvent().getId()
-                )
+    if (!booking.getUser().getId().equals(userId)) {
+        throw new BusinessException(
+                "You cannot cancel another user's booking"
         );
     }
+
+    if (booking.getStatus() == BookingStatus.CONFIRMED) {
+        throw new BusinessException(
+                "Paid bookings must be refunded before cancellation"
+        );
+    }
+
+    if (booking.getStatus() != BookingStatus.PENDING) {
+        throw new BusinessException("This booking cannot be cancelled");
+    }
+
+    booking.cancel();
+
+    int released = ticketRepository.releaseTicketsForBooking(
+            booking.getId(),
+            List.of(TicketStatus.RESERVED)
+    );
+
+    if (released != booking.getQuantity()) {
+        throw new BusinessException(
+                "Unable to release all booking tickets"
+        );
+    }
+
+    eventPublisher.publishEvent(
+            new BookingCancelledEvent(
+                    booking.getBookingReference(),
+                    booking.getUser().getId(),
+                    booking.getEvent().getId()
+            )
+    );
+}
 }
