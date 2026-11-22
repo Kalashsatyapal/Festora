@@ -1,3 +1,4 @@
+
 package com.festora_backend.admin.service;
 
 import com.festora_backend.admin.dto.BillingRefundRequest;
@@ -9,13 +10,16 @@ import com.festora_backend.booking.entity.Booking;
 import com.festora_backend.booking.repository.BookingRepository;
 import com.festora_backend.common.enums.BookingStatus;
 import com.festora_backend.common.enums.PaymentStatus;
+import com.festora_backend.common.enums.TicketStatus;
 import com.festora_backend.common.exception.BusinessException;
 import com.festora_backend.common.exception.ResourceNotFoundException;
 import com.festora_backend.payment.entity.PaymentRecord;
 import com.festora_backend.payment.repository.PaymentRecordRepository;
+import com.festora_backend.ticket.repository.TicketRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -25,17 +29,20 @@ public class AdminRefundService {
     private final RefundAuditRepository refundRepository;
     private final PaymentRecordRepository paymentRecordRepository;
     private final BillingClient billingClient;
+    private final TicketRepository ticketRepository;
 
     public AdminRefundService(
             BookingRepository bookingRepository,
             RefundAuditRepository refundRepository,
             PaymentRecordRepository paymentRecordRepository,
-            BillingClient billingClient
+            BillingClient billingClient,
+            TicketRepository ticketRepository
     ) {
         this.bookingRepository = bookingRepository;
         this.refundRepository = refundRepository;
         this.paymentRecordRepository = paymentRecordRepository;
         this.billingClient = billingClient;
+        this.ticketRepository = ticketRepository;
     }
 
     @Transactional
@@ -139,6 +146,17 @@ public class AdminRefundService {
             if (completed != 1) {
                 throw new BusinessException(
                         "Unable to complete booking refund status"
+                );
+            }
+
+            int released = ticketRepository.releaseTicketsForBooking(
+                    booking.getId(),
+                    List.of(TicketStatus.SOLD)
+            );
+
+            if (released != 0 && released != booking.getQuantity()) {
+                throw new BusinessException(
+                        "Refund completed but ticket inventory release was incomplete"
                 );
             }
         } else if ("FAILED".equalsIgnoreCase(billingResponse.status())) {

@@ -89,49 +89,42 @@ class BookingCancellationServiceTest {
         lenient().when(event.getId()).thenReturn(30L);
     }
 
-    @Test
-    void paidBookingShouldBeCancelledAndTicketsReleasedAfterRefund() {
-        when(booking.getStatus()).thenReturn(BookingStatus.CONFIRMED);
+   @Test
+void paidBookingShouldBeCancelledAndTicketsReleasedAfterRefund() {
+    when(booking.getStatus()).thenReturn(BookingStatus.CONFIRMED);
 
-        when(ticketRepository.findByBookingIdForUpdate(10L))
-                .thenReturn(List.of(ticket1, ticket2));
+    when(ticketRepository.findByBookingIdForUpdate(10L))
+            .thenReturn(List.of(ticket1, ticket2));
 
-        when(ticket1.getStatus()).thenReturn(TicketStatus.SOLD);
-        when(ticket2.getStatus()).thenReturn(TicketStatus.SOLD);
+    when(ticket1.getStatus()).thenReturn(TicketStatus.SOLD);
+    when(ticket2.getStatus()).thenReturn(TicketStatus.SOLD);
 
-        when(adminRefundService.initiateRefund(
-                bookingReference,
-                "Customer cancellation"
-        )).thenReturn(new RefundResponse(
-                1L,
-                bookingReference,
-                new BigDecimal("1200.00"),
-                "REFUNDED",
-                "Customer cancellation",
-                "REF-123",
-                Instant.now(),
-                Instant.now()
-        ));
+    when(adminRefundService.initiateRefund(
+            bookingReference,
+            "Customer cancellation"
+    )).thenReturn(new RefundResponse(
+            1L,
+            bookingReference,
+            new BigDecimal("1200.00"),
+            "REFUNDED",
+            "Customer cancellation",
+            "REF-123",
+            Instant.now(),
+            Instant.now()
+    ));
 
-        when(ticketRepository.releaseTicketsForBooking(
-                10L,
-                List.of(TicketStatus.SOLD)
-        )).thenReturn(2);
+    RefundResponse response = cancellationService.cancelBooking(
+            bookingReference,
+            "USER@test.com"
+    );
 
-        RefundResponse response = cancellationService.cancelBooking(
-                bookingReference,
-                "USER@test.com"
-        );
+    assertEquals("REFUNDED", response.status());
 
-        assertEquals("REFUNDED", response.status());
+    verify(booking).cancel();
 
-        verify(booking).cancel();
-
-        verify(ticketRepository).releaseTicketsForBooking(
-                10L,
-                List.of(TicketStatus.SOLD)
-        );
-    }
+    verify(ticketRepository, never())
+            .releaseTicketsForBooking(anyLong(), anyList());
+}
 
     @Test
     void pendingBookingShouldBeCancelledAndReservedTicketsReleased() {

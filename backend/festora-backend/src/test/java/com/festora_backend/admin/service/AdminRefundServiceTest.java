@@ -1,4 +1,3 @@
-
 package com.festora_backend.admin.service;
 
 import com.festora_backend.admin.dto.BillingRefundRequest;
@@ -9,9 +8,11 @@ import com.festora_backend.booking.entity.Booking;
 import com.festora_backend.booking.repository.BookingRepository;
 import com.festora_backend.common.enums.BookingStatus;
 import com.festora_backend.common.enums.PaymentStatus;
+import com.festora_backend.common.enums.TicketStatus;
 import com.festora_backend.common.exception.BusinessException;
 import com.festora_backend.payment.entity.PaymentRecord;
 import com.festora_backend.payment.repository.PaymentRecordRepository;
+import com.festora_backend.ticket.repository.TicketRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -23,6 +24,7 @@ import org.mockito.quality.Strictness;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -43,6 +45,9 @@ class AdminRefundServiceTest {
 
     @Mock
     private PaymentRecordRepository paymentRecordRepository;
+
+    @Mock
+    private TicketRepository ticketRepository;
 
     @Mock
     private BillingClient billingClient;
@@ -66,6 +71,7 @@ class AdminRefundServiceTest {
         when(bookingRepository.findByBookingReferenceForUpdate(bookingReference))
                 .thenReturn(Optional.of(booking));
 
+        when(booking.getQuantity()).thenReturn(2);
         when(booking.getStatus()).thenReturn(BookingStatus.CANCELLED);
         when(booking.getId()).thenReturn(10L);
         when(booking.getBookingReference()).thenReturn(bookingReference);
@@ -93,6 +99,11 @@ class AdminRefundServiceTest {
     void refundShouldCompleteSuccessfully() {
         when(refundRepository.findByBookingId(10L))
                 .thenReturn(Optional.empty());
+
+        when(ticketRepository.releaseTicketsForBooking(
+                10L,
+                List.of(TicketStatus.SOLD)
+        )).thenReturn(2);
 
         when(refundRepository.save(any(RefundAudit.class)))
                 .thenReturn(audit);
@@ -123,6 +134,10 @@ class AdminRefundServiceTest {
         assertEquals("REF-123", response.billingReference());
 
         verify(audit).markRefunded("REF-123");
+        verify(ticketRepository).releaseTicketsForBooking(
+                10L,
+                List.of(TicketStatus.SOLD)
+        );
     }
 
     @Test
@@ -152,6 +167,8 @@ class AdminRefundServiceTest {
                 BookingStatus.REFUND_PENDING,
                 BookingStatus.CANCELLED
         );
+        verify(ticketRepository, never())
+                .releaseTicketsForBooking(anyLong(), anyList());
     }
 
     @Test
@@ -163,6 +180,11 @@ class AdminRefundServiceTest {
                 PaymentStatus.FAILED,
                 PaymentStatus.REFUNDED
         );
+
+        when(ticketRepository.releaseTicketsForBooking(
+                10L,
+                List.of(TicketStatus.SOLD)
+        )).thenReturn(2);
 
         when(billingClient.refund(any(BillingRefundRequest.class)))
                 .thenReturn(new BillingRefundResponse(
@@ -190,6 +212,10 @@ class AdminRefundServiceTest {
         verify(audit).markPending();
         verify(audit).markRefunded("REF-123");
         verify(refundRepository, never()).save(any(RefundAudit.class));
+        verify(ticketRepository).releaseTicketsForBooking(
+                10L,
+                List.of(TicketStatus.SOLD)
+        );
     }
 
     @Test
@@ -215,8 +241,10 @@ class AdminRefundServiceTest {
         assertEquals("REFUND_PENDING", response.status());
 
         verify(billingClient).refund(any(BillingRefundRequest.class));
-        verify(audit, org.mockito.Mockito.times(2)).markPending();
+        verify(audit, times(2)).markPending();
         verify(refundRepository, never()).save(any(RefundAudit.class));
+        verify(ticketRepository, never())
+                .releaseTicketsForBooking(anyLong(), anyList());
     }
 
     @Test

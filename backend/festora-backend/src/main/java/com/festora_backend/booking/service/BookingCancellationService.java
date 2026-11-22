@@ -1,4 +1,3 @@
-
 package com.festora_backend.booking.service;
 
 import com.festora_backend.admin.dto.RefundResponse;
@@ -145,24 +144,9 @@ public class BookingCancellationService {
 
         booking.cancel();
 
-        RefundResponse response = adminRefundService.initiateRefund(
+        return adminRefundService.initiateRefund(
                 booking.getBookingReference(),
                 "Customer cancellation"
         );
-
-        if ("REFUNDED".equalsIgnoreCase(response.status())) {
-            int released = ticketRepository.releaseTicketsForBooking(
-                    booking.getId(),
-                    List.of(TicketStatus.SOLD)
-            );
-
-            if (released != booking.getQuantity()) {
-                throw new BusinessException(
-                        "Refund completed but ticket release requires recovery"
-                );
-            }
-        }
-
-        return response;
     }
 }
