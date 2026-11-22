@@ -3,10 +3,12 @@ package com.festora_backend.booking.service;
 import com.festora_backend.admin.dto.RefundResponse;
 import com.festora_backend.admin.service.AdminRefundService;
 import com.festora_backend.booking.entity.Booking;
+import com.festora_backend.booking.event.BookingCancelledEvent;
 import com.festora_backend.booking.repository.BookingRepository;
 import com.festora_backend.common.enums.BookingStatus;
 import com.festora_backend.common.enums.TicketStatus;
 import com.festora_backend.common.exception.BusinessException;
+import com.festora_backend.event.entity.Event;
 import com.festora_backend.ticket.entity.Ticket;
 import com.festora_backend.ticket.repository.TicketRepository;
 import com.festora_backend.user.entity.User;
@@ -15,6 +17,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -40,10 +43,16 @@ class BookingCancellationServiceTest {
     private AdminRefundService adminRefundService;
 
     @Mock
+    private ApplicationEventPublisher eventPublisher;
+
+    @Mock
     private Booking booking;
 
     @Mock
     private User user;
+
+    @Mock
+    private Event event;
 
     @Mock
     private Ticket ticket1;
@@ -59,7 +68,8 @@ class BookingCancellationServiceTest {
         cancellationService = new BookingCancellationService(
                 bookingRepository,
                 ticketRepository,
-                adminRefundService
+                adminRefundService,
+                eventPublisher
         );
 
         bookingReference = UUID.randomUUID();
@@ -72,6 +82,11 @@ class BookingCancellationServiceTest {
         lenient().when(booking.getQuantity()).thenReturn(2);
         when(booking.getUser()).thenReturn(user);
         when(user.getEmail()).thenReturn("user@test.com");
+
+        // lenient: rejection tests exit before the event is published
+        lenient().when(booking.getEvent()).thenReturn(event);
+        lenient().when(user.getId()).thenReturn(20L);
+        lenient().when(event.getId()).thenReturn(30L);
     }
 
     @Test
@@ -103,7 +118,7 @@ class BookingCancellationServiceTest {
                 List.of(TicketStatus.SOLD)
         )).thenReturn(2);
 
-        RefundResponse response = cancellationService.cancelPaidBooking(
+        RefundResponse response = cancellationService.cancelBooking(
                 bookingReference,
                 "USER@test.com"
         );
@@ -116,6 +131,42 @@ class BookingCancellationServiceTest {
                 10L,
                 List.of(TicketStatus.SOLD)
         );
+    }
+
+    @Test
+    void pendingBookingShouldBeCancelledAndReservedTicketsReleased() {
+        when(booking.getStatus()).thenReturn(BookingStatus.PENDING);
+
+        when(ticketRepository.findByBookingIdForUpdate(10L))
+                .thenReturn(List.of(ticket1, ticket2));
+
+        when(ticket1.getStatus()).thenReturn(TicketStatus.RESERVED);
+        when(ticket2.getStatus()).thenReturn(TicketStatus.RESERVED);
+
+        when(ticketRepository.releaseTicketsForBooking(
+                10L,
+                List.of(TicketStatus.RESERVED)
+        )).thenReturn(2);
+
+        RefundResponse response = cancellationService.cancelBooking(
+                bookingReference,
+                "user@test.com"
+        );
+
+        assertEquals("CANCELLED", response.status());
+
+        verify(booking).cancel();
+
+        verify(ticketRepository).releaseTicketsForBooking(
+                10L,
+                List.of(TicketStatus.RESERVED)
+        );
+
+        verify(eventPublisher).publishEvent(
+                new BookingCancelledEvent(bookingReference, 20L, 30L)
+        );
+
+        verifyNoInteractions(adminRefundService);
     }
 
     @Test
@@ -142,7 +193,7 @@ class BookingCancellationServiceTest {
                 Instant.now()
         ));
 
-        RefundResponse response = cancellationService.cancelPaidBooking(
+        RefundResponse response = cancellationService.cancelBooking(
                 bookingReference,
                 "user@test.com"
         );
@@ -159,7 +210,7 @@ class BookingCancellationServiceTest {
 
         assertThrows(
                 BusinessException.class,
-                () -> cancellationService.cancelPaidBooking(
+                () -> cancellationService.cancelBooking(
                         bookingReference,
                         "other@test.com"
                 )
@@ -172,12 +223,12 @@ class BookingCancellationServiceTest {
     }
 
     @Test
-    void cancellationShouldRejectNonConfirmedBooking() {
-        when(booking.getStatus()).thenReturn(BookingStatus.PENDING);
+    void cancellationShouldRejectAlreadyCancelledBooking() {
+        when(booking.getStatus()).thenReturn(BookingStatus.CANCELLED);
 
         assertThrows(
                 BusinessException.class,
-                () -> cancellationService.cancelPaidBooking(
+                () -> cancellationService.cancelBooking(
                         bookingReference,
                         "user@test.com"
                 )
@@ -200,7 +251,7 @@ class BookingCancellationServiceTest {
 
         assertThrows(
                 BusinessException.class,
-                () -> cancellationService.cancelPaidBooking(
+                () -> cancellationService.cancelBooking(
                         bookingReference,
                         "user@test.com"
                 )
@@ -221,7 +272,7 @@ class BookingCancellationServiceTest {
 
         assertThrows(
                 BusinessException.class,
-                () -> cancellationService.cancelPaidBooking(
+                () -> cancellationService.cancelBooking(
                         bookingReference,
                         "user@test.com"
                 )
@@ -236,7 +287,7 @@ class BookingCancellationServiceTest {
 
         assertThrows(
                 BusinessException.class,
-                () -> cancellationService.cancelPaidBooking(
+                () -> cancellationService.cancelBooking(
                         bookingReference,
                         "user@test.com"
                 )

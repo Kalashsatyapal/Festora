@@ -1,9 +1,6 @@
-
 package com.festora_backend.booking.controller;
 
-import com.festora_backend.admin.dto.RefundResponse;
 import com.festora_backend.booking.dto.BookingVoucherResponse;
-import com.festora_backend.booking.service.BookingCancellationService;
 import com.festora_backend.booking.service.BookingVoucherService;
 import com.festora_backend.common.response.ApiResponse;
 import com.festora_backend.user.entity.User;
@@ -21,38 +18,15 @@ import java.util.UUID;
 @RequestMapping("/api/bookings/{bookingReference}")
 public class BookingLifecycleController {
 
-    private final BookingCancellationService cancellationService;
     private final BookingVoucherService voucherService;
     private final UserRepository userRepository;
 
     public BookingLifecycleController(
-            BookingCancellationService cancellationService,
             BookingVoucherService voucherService,
             UserRepository userRepository
     ) {
-        this.cancellationService = cancellationService;
         this.voucherService = voucherService;
         this.userRepository = userRepository;
-    }
-
-    @PostMapping("/cancel")
-    @PreAuthorize("hasRole('USER')")
-    public ResponseEntity<ApiResponse<RefundResponse>> cancelBooking(
-            @PathVariable UUID bookingReference,
-            Authentication authentication
-    ) {
-        RefundResponse response = cancellationService.cancelPaidBooking(
-                bookingReference,
-                authentication.getName()
-        );
-
-        String message = "REFUNDED".equalsIgnoreCase(response.status())
-                ? "Booking cancelled and refund completed"
-                : "Cancellation accepted. Refund is being processed";
-
-        return ResponseEntity.ok(
-                ApiResponse.success(message, response)
-        );
     }
 
     @GetMapping("/voucher")
