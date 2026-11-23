@@ -144,7 +144,24 @@ class BookingServiceTest {
                 verify(bookingRepository, never()).save(any());
                 verify(ticketRepository, never()).saveAll(anyList());
         }
+@Test
+void checkoutShouldRejectMoreThanTenTicketsWhenSeatNumbersAreOmitted() {
 
+        assertThrows(
+                BusinessException.class,
+                () -> bookingService.checkout(
+                        new CheckoutRequest(1L, 11, null),
+                        "user@test.com"
+                )
+        );
+
+        verifyNoInteractions(
+                userRepository,
+                eventRepository,
+                ticketRepository,
+                bookingRepository
+        );
+}
         @Test
         void checkoutShouldRejectUnpublishedEvent() {
 

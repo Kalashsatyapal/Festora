@@ -32,6 +32,8 @@ public class BookingService {
     private static final Duration RESERVATION_DURATION =
             Duration.ofMinutes(15);
 
+    private static final int MAX_TICKETS_PER_BOOKING = 10;
+
     private final BookingRepository bookingRepository;
     private final TicketRepository ticketRepository;
     private final EventRepository eventRepository;
@@ -54,9 +56,15 @@ public class BookingService {
             CheckoutRequest request,
             String email
     ) {
-        if (request.quantity() == null || request.quantity() <= 0) {
+        if (request.quantity() == null || request.quantity() < 1) {
             throw new BusinessException(
                     "Ticket quantity must be greater than zero"
+            );
+        }
+
+        if (request.quantity() > MAX_TICKETS_PER_BOOKING) {
+            throw new BusinessException(
+                    "You can book at most 10 tickets"
             );
         }
 
@@ -107,7 +115,7 @@ public class BookingService {
             Pageable pageable = PageRequest.of(
                     0,
                     request.quantity(),
-                    Sort.by(Sort.Direction.ASC, Ticket::getSeatNumber)
+                    Sort.by(Sort.Direction.ASC, "seatNumber")
             );
 
             availableTickets =

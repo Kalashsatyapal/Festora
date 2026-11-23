@@ -1,4 +1,3 @@
-
 package com.festora_backend.booking.service;
 
 import com.festora_backend.booking.entity.Booking;
@@ -157,10 +156,16 @@ public class BookingLifecycleService {
 
             booking.expire();
 
-            ticketRepository.releaseTicketsForBooking(
+            int released = ticketRepository.releaseTicketsForBooking(
                     booking.getId(),
                     List.of(TicketStatus.RESERVED)
             );
+
+            if (released != booking.getQuantity()) {
+                throw new BusinessException(
+                        "Unable to release all expired booking tickets"
+                );
+            }
 
             expiredCount++;
         }
@@ -169,52 +174,52 @@ public class BookingLifecycleService {
     }
 
     @Transactional
-public void cancelBooking(
-        UUID bookingReference,
-        String email,
-        Long userId
-) {
-    Booking booking = bookingRepository
-            .findByBookingReferenceForUpdate(bookingReference)
-            .orElseThrow(() ->
-                    new ResourceNotFoundException("Booking", bookingReference)
+    public void cancelBooking(
+            UUID bookingReference,
+            String email,
+            Long userId
+    ) {
+        Booking booking = bookingRepository
+                .findByBookingReferenceForUpdate(bookingReference)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Booking", bookingReference)
+                );
+
+        if (!booking.getUser().getId().equals(userId)) {
+            throw new BusinessException(
+                    "You cannot cancel another user's booking"
             );
+        }
 
-    if (!booking.getUser().getId().equals(userId)) {
-        throw new BusinessException(
-                "You cannot cancel another user's booking"
+        if (booking.getStatus() == BookingStatus.CONFIRMED) {
+            throw new BusinessException(
+                    "Paid bookings must be refunded before cancellation"
+            );
+        }
+
+        if (booking.getStatus() != BookingStatus.PENDING) {
+            throw new BusinessException("This booking cannot be cancelled");
+        }
+
+        booking.cancel();
+
+        int released = ticketRepository.releaseTicketsForBooking(
+                booking.getId(),
+                List.of(TicketStatus.RESERVED)
+        );
+
+        if (released != booking.getQuantity()) {
+            throw new BusinessException(
+                    "Unable to release all booking tickets"
+            );
+        }
+
+        eventPublisher.publishEvent(
+                new BookingCancelledEvent(
+                        booking.getBookingReference(),
+                        booking.getUser().getId(),
+                        booking.getEvent().getId()
+                )
         );
     }
-
-    if (booking.getStatus() == BookingStatus.CONFIRMED) {
-        throw new BusinessException(
-                "Paid bookings must be refunded before cancellation"
-        );
-    }
-
-    if (booking.getStatus() != BookingStatus.PENDING) {
-        throw new BusinessException("This booking cannot be cancelled");
-    }
-
-    booking.cancel();
-
-    int released = ticketRepository.releaseTicketsForBooking(
-            booking.getId(),
-            List.of(TicketStatus.RESERVED)
-    );
-
-    if (released != booking.getQuantity()) {
-        throw new BusinessException(
-                "Unable to release all booking tickets"
-        );
-    }
-
-    eventPublisher.publishEvent(
-            new BookingCancelledEvent(
-                    booking.getBookingReference(),
-                    booking.getUser().getId(),
-                    booking.getEvent().getId()
-            )
-    );
-}
 }

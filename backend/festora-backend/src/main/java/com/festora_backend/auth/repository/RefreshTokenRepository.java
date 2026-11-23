@@ -1,3 +1,4 @@
+
 package com.festora_backend.auth.repository;
 
 import com.festora_backend.auth.entity.RefreshToken;
@@ -6,9 +7,11 @@ import jakarta.persistence.LockModeType;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.Instant;
 import java.util.Optional;
 
 public interface RefreshTokenRepository
@@ -22,5 +25,17 @@ public interface RefreshTokenRepository
             """)
     Optional<RefreshToken> findByTokenHashForUpdate(
             @Param("tokenHash") String tokenHash
+    );
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("""
+            UPDATE RefreshToken r
+            SET r.revokedAt = :revokedAt
+            WHERE r.user.id = :userId
+            AND r.revokedAt IS NULL
+            """)
+    int revokeAllByUserId(
+            @Param("userId") Long userId,
+            @Param("revokedAt") Instant revokedAt
     );
 }

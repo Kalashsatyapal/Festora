@@ -1,7 +1,9 @@
+
 package com.festora_backend.auth.service;
 
 import com.festora_backend.auth.entity.PasswordResetToken;
 import com.festora_backend.auth.repository.PasswordResetTokenRepository;
+import com.festora_backend.auth.repository.RefreshTokenRepository;
 import com.festora_backend.auth.dto.ForgotPasswordRequest;
 import com.festora_backend.auth.dto.ResetPasswordRequest;
 import com.festora_backend.common.exception.BusinessException;
@@ -26,6 +28,7 @@ public class PasswordResetService {
 
     private final UserRepository userRepository;
     private final PasswordResetTokenRepository tokenRepository;
+    private final RefreshTokenRepository refreshTokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final PasswordResetEmailService emailService;
     private final long expirationMinutes;
@@ -34,6 +37,7 @@ public class PasswordResetService {
     public PasswordResetService(
             UserRepository userRepository,
             PasswordResetTokenRepository tokenRepository,
+            RefreshTokenRepository refreshTokenRepository,
             PasswordEncoder passwordEncoder,
             PasswordResetEmailService emailService,
             @Value("${festora.password-reset.expiration-minutes:15}")
@@ -41,6 +45,7 @@ public class PasswordResetService {
     ) {
         this.userRepository = userRepository;
         this.tokenRepository = tokenRepository;
+        this.refreshTokenRepository = refreshTokenRepository;
         this.passwordEncoder = passwordEncoder;
         this.emailService = emailService;
         this.expirationMinutes = expirationMinutes;
@@ -108,6 +113,11 @@ public class PasswordResetService {
 
         userRepository.save(user);
         tokenRepository.save(resetToken);
+
+        refreshTokenRepository.revokeAllByUserId(
+                user.getId(),
+                Instant.now()
+        );
     }
 
     private String hashToken(String token) {

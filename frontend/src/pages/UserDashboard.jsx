@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import api from "../api/client";
 
-const statuses = ["ALL", "PENDING", "CONFIRMED", "CANCELLED", "EXPIRED", "REFUNDED"];
+const statuses = ["ALL", "PENDING", "CONFIRMED", "CANCELLED", "EXPIRED", "REFUND_PENDING","REFUNDED"];
 
 const formatDate = (value) =>
   value ? new Date(value).toLocaleString() : "Date unavailable";

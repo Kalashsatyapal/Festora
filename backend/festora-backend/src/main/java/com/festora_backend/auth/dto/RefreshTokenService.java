@@ -55,7 +55,7 @@ public class RefreshTokenService {
         );
     }
 
-    @Transactional
+    @Transactional(noRollbackFor = BusinessException.class)
     public RefreshTokenResult rotate(String rawToken) {
         RefreshToken current = repository
                 .findByTokenHashForUpdate(hashToken(rawToken))

@@ -223,6 +223,58 @@ class BookingLifecycleServiceTest {
                 .findByBookingIdForUpdate(anyLong());
     }
 
+@Test
+void expiredPendingBookingsShouldReleaseAllReservedTickets() {
+    when(booking.getStatus()).thenReturn(BookingStatus.PENDING);
+    when(booking.getExpiresAt()).thenReturn(
+            Instant.now().minusSeconds(60)
+    );
+
+    when(bookingRepository.findByStatusAndExpiresAtBefore(
+            eq(BookingStatus.PENDING),
+            any(Instant.class)
+    )).thenReturn(List.of(booking));
+
+    when(ticketRepository.releaseTicketsForBooking(
+            10L,
+            List.of(TicketStatus.RESERVED)
+    )).thenReturn(2);
+
+    int expiredCount = lifecycleService.expirePendingBookings();
+
+    assertEquals(1, expiredCount);
+    verify(booking).expire();
+    verify(ticketRepository).releaseTicketsForBooking(
+            10L,
+            List.of(TicketStatus.RESERVED)
+    );
+}
+
+@Test
+void expiredPendingBookingsShouldFailWhenTicketReleaseIsIncomplete() {
+    when(booking.getStatus()).thenReturn(BookingStatus.PENDING);
+    when(booking.getExpiresAt()).thenReturn(
+            Instant.now().minusSeconds(60)
+    );
+
+    when(bookingRepository.findByStatusAndExpiresAtBefore(
+            eq(BookingStatus.PENDING),
+            any(Instant.class)
+    )).thenReturn(List.of(booking));
+
+    when(ticketRepository.releaseTicketsForBooking(
+            10L,
+            List.of(TicketStatus.RESERVED)
+    )).thenReturn(1);
+
+    assertThrows(
+            BusinessException.class,
+            () -> lifecycleService.expirePendingBookings()
+    );
+
+    verify(booking).expire();
+}
+
     @Test
     void expiredPendingBookingShouldUpdateReloadedBookingAfterTicketRelease() {
         when(booking.getStatus()).thenReturn(BookingStatus.PENDING);
