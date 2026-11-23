@@ -104,6 +104,10 @@ public interface BookingRepository
             @Param("status") BookingStatus status);
 
     Page<Booking> findByUserId(Long userId, Pageable pageable);
+    List<Booking> findByEventIdAndStatusIn(
+        Long eventId,
+        List<BookingStatus> statuses
+);
 
     Page<Booking> findByUserIdAndStatus(
             Long userId,

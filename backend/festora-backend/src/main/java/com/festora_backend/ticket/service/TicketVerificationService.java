@@ -1,6 +1,7 @@
 
 package com.festora_backend.ticket.service;
 
+import com.festora_backend.common.enums.EventStatus;
 import com.festora_backend.common.enums.TicketStatus;
 import com.festora_backend.common.exception.BusinessException;
 import com.festora_backend.common.exception.ResourceNotFoundException;
@@ -45,6 +46,12 @@ public class TicketVerificationService {
             );
         }
 
+        if (ticket.getEvent().getStatus() != EventStatus.PUBLISHED) {
+            throw new BusinessException(
+                    "Tickets for cancelled or unpublished events cannot be verified"
+            );
+        }
+
         if (ticket.getStatus() == TicketStatus.USED) {
             throw new BusinessException(
                     "Ticket has already been used"
@@ -58,7 +65,6 @@ public class TicketVerificationService {
         }
 
         ticket.markUsed();
-
         ticketRepository.saveAndFlush(ticket);
 
         return new TicketVerificationResponse(
