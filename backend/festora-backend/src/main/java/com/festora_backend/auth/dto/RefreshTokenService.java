@@ -1,3 +1,4 @@
+
 package com.festora_backend.auth.dto;
 
 import com.festora_backend.auth.entity.RefreshToken;
@@ -36,6 +37,7 @@ public class RefreshTokenService {
     @Transactional
     public RefreshTokenResult create(User user) {
         String rawToken = generateToken();
+
         Instant expiresAt = Instant.now().plusSeconds(
                 expirationDays * 86400
         );
@@ -90,6 +92,7 @@ public class RefreshTokenService {
         repository.save(current);
 
         String newRawToken = generateToken();
+
         Instant newExpiry = now.plusSeconds(
                 expirationDays * 86400
         );
@@ -107,6 +110,18 @@ public class RefreshTokenService {
                 newRawToken,
                 newExpiry
         );
+    }
+
+    @Transactional
+    public void revoke(String rawToken) {
+        repository.findByTokenHashForUpdate(
+                hashToken(rawToken)
+        ).ifPresent(token -> {
+            if (token.getRevokedAt() == null) {
+                token.revoke();
+                repository.save(token);
+            }
+        });
     }
 
     private String generateToken() {

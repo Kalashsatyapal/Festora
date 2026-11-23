@@ -1,3 +1,4 @@
+
 package com.festora_backend.config;
 
 import com.festora_backend.auth.security.JwtAuthenticationFilter;
@@ -42,6 +43,7 @@ public class SecurityConfig {
                                 "/api/auth/forgot-password",
                                 "/api/auth/reset-password",
                                 "/api/auth/refresh",
+                                "/api/auth/logout",
                                 "/actuator/health")
                         .permitAll()
                         .requestMatchers(

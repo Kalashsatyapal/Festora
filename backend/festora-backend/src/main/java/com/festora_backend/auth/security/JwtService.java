@@ -1,3 +1,4 @@
+
 package com.festora_backend.auth.security;
 
 import com.festora_backend.user.entity.User;
@@ -10,8 +11,8 @@ import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
 import java.time.Instant;
-import java.util.Date;
 import java.util.Base64;
+import java.util.Date;
 
 @Service
 public class JwtService {
@@ -36,7 +37,6 @@ public class JwtService {
     }
 
     public String generateToken(User user) {
-
         Instant now = Instant.now();
         Instant expiry = now.plusMillis(expirationMillis);
 
@@ -44,6 +44,7 @@ public class JwtService {
                 .subject(user.getId().toString())
                 .claim("email", user.getEmail())
                 .claim("role", user.getRole().name())
+                .claim("tokenVersion", user.getTokenVersion())
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(expiry))
                 .signWith(signingKey)
@@ -51,7 +52,6 @@ public class JwtService {
     }
 
     public Claims extractClaims(String token) {
-
         return Jwts.parser()
                 .verifyWith(signingKey)
                 .build()
@@ -62,6 +62,7 @@ public class JwtService {
     public boolean isValid(String token) {
         try {
             Claims claims = extractClaims(token);
+
             return claims.getSubject() != null
                     && claims.getExpiration() != null
                     && claims.getExpiration().after(new Date());

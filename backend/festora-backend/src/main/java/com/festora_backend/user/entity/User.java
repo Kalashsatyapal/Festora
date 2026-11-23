@@ -1,3 +1,4 @@
+
 package com.festora_backend.user.entity;
 
 import com.festora_backend.common.enums.AccountStatus;
@@ -40,6 +41,9 @@ public class User {
     @Column(nullable = false)
     private boolean enabled;
 
+    @Column(nullable = false)
+    private long tokenVersion;
+
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -53,7 +57,8 @@ public class User {
             String fullName,
             String email,
             String passwordHash,
-            UserRole role) {
+            UserRole role
+    ) {
         User user = new User();
         user.fullName = fullName;
         user.email = email;
@@ -63,6 +68,7 @@ public class User {
                 ? AccountStatus.PENDING
                 : AccountStatus.ACTIVE;
         user.enabled = role != UserRole.ORGANIZER;
+        user.tokenVersion = 0;
         return user;
     }
 
@@ -81,25 +87,30 @@ public class User {
     public void activateOrganizer() {
         if (role != UserRole.ORGANIZER) {
             throw new IllegalStateException(
-                    "Only organizer accounts can be activated");
+                    "Only organizer accounts can be activated"
+            );
         }
 
         status = AccountStatus.ACTIVE;
         enabled = true;
+        tokenVersion++;
     }
 
     public void rejectOrganizer() {
         if (role != UserRole.ORGANIZER) {
             throw new IllegalStateException(
-                    "Only organizer accounts can be rejected");
+                    "Only organizer accounts can be rejected"
+            );
         }
 
         status = AccountStatus.REJECTED;
         enabled = false;
+        tokenVersion++;
     }
 
     public void updatePassword(String passwordHash) {
         this.passwordHash = passwordHash;
+        tokenVersion++;
     }
 
     public void updateAvatar(String avatarUrl) {
@@ -108,28 +119,38 @@ public class User {
 
     public void suspend() {
         if (role == UserRole.ADMIN) {
-            throw new IllegalStateException("Admin accounts cannot be suspended");
+            throw new IllegalStateException(
+                    "Admin accounts cannot be suspended"
+            );
         }
 
         if (status != AccountStatus.ACTIVE) {
-            throw new IllegalStateException("Only active accounts can be suspended");
+            throw new IllegalStateException(
+                    "Only active accounts can be suspended"
+            );
         }
 
         status = AccountStatus.SUSPENDED;
         enabled = false;
+        tokenVersion++;
     }
 
     public void reactivate() {
         if (role == UserRole.ADMIN) {
-            throw new IllegalStateException("Admin accounts cannot be changed");
+            throw new IllegalStateException(
+                    "Admin accounts cannot be changed"
+            );
         }
 
         if (status != AccountStatus.SUSPENDED) {
-            throw new IllegalStateException("Only suspended accounts can be reactivated");
+            throw new IllegalStateException(
+                    "Only suspended accounts can be reactivated"
+            );
         }
 
         status = AccountStatus.ACTIVE;
         enabled = true;
+        tokenVersion++;
     }
 
     public Long getId() {
@@ -162,6 +183,10 @@ public class User {
 
     public boolean isEnabled() {
         return enabled;
+    }
+
+    public long getTokenVersion() {
+        return tokenVersion;
     }
 
     public Instant getCreatedAt() {

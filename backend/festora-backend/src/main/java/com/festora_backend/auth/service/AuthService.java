@@ -1,3 +1,4 @@
+
 package com.festora_backend.auth.service;
 
 import com.festora_backend.auth.dto.*;
@@ -102,7 +103,6 @@ public class AuthService {
         return buildAuthResponse(user, refresh);
     }
 
-    @Transactional
     public AuthResponse refresh(String rawRefreshToken) {
         RefreshTokenResult refresh =
                 refreshTokenService.rotate(rawRefreshToken);
@@ -111,6 +111,11 @@ public class AuthService {
                 refresh.user(),
                 refresh
         );
+    }
+
+    @Transactional
+    public void logout(String rawRefreshToken) {
+        refreshTokenService.revoke(rawRefreshToken);
     }
 
     private AuthResponse buildAuthResponse(

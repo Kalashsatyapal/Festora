@@ -29,6 +29,7 @@ public class GatewayJwtFilter implements GlobalFilter, Ordered {
             "/api/auth/forgot-password",
             "/api/auth/reset-password",
             "/api/webhooks/razorpay",
+            "/api/auth/logout",
             "/api/auth/refresh");
 
     private final SecretKey signingKey;

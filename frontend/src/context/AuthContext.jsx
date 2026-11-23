@@ -63,11 +63,20 @@ export function AuthProvider({ children }) {
     });
   };
 
-  const logout = () => {
+  const logout = async () => {
+    const refreshToken = localStorage.getItem("festora_refresh_token");
+
     localStorage.removeItem("festora_token");
     localStorage.removeItem("festora_refresh_token");
     localStorage.removeItem("festora_user");
     setUser(null);
+
+    if (refreshToken) {
+      try {
+        await api.post("/auth/logout", { refreshToken });
+      } catch {
+      }
+    }
   };
 
   const value = useMemo(

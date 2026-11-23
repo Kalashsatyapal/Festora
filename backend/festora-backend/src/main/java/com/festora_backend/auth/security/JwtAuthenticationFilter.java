@@ -1,5 +1,7 @@
+
 package com.festora_backend.auth.security;
 
+import com.festora_backend.common.enums.AccountStatus;
 import com.festora_backend.user.entity.User;
 import com.festora_backend.user.repository.UserRepository;
 
@@ -47,7 +49,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String header = request.getHeader("Authorization");
 
         if (header != null && header.startsWith("Bearer ")) {
-
             String token = header.substring(7);
 
             if (jwtService.isValid(token)
@@ -58,35 +59,54 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     Claims claims = jwtService.extractClaims(token);
 
                     Long userId = Long.valueOf(claims.getSubject());
+                    Object tokenVersionClaim = claims.get("tokenVersion");
+
+                    if (!(tokenVersionClaim instanceof Number tokenVersion)) {
+                        response.sendError(
+                                HttpServletResponse.SC_UNAUTHORIZED
+                        );
+                        return;
+                    }
 
                     User user = userRepository.findById(userId)
                             .orElse(null);
 
-                    if (user != null && user.isEnabled()) {
-
-                        UserDetails userDetails =
-                                userDetailsService.loadUserByUsername(
-                                        user.getEmail()
-                                );
-
-                        UsernamePasswordAuthenticationToken authentication =
-                                new UsernamePasswordAuthenticationToken(
-                                        userDetails,
-                                        null,
-                                        userDetails.getAuthorities()
-                                );
-
-                        authentication.setDetails(
-                                new WebAuthenticationDetailsSource()
-                                        .buildDetails(request)
+                    if (user == null
+                            || !user.isEnabled()
+                            || user.getStatus() != AccountStatus.ACTIVE
+                            || user.getTokenVersion() != tokenVersion.longValue()) {
+                        response.sendError(
+                                HttpServletResponse.SC_UNAUTHORIZED
                         );
-
-                        SecurityContextHolder.getContext()
-                                .setAuthentication(authentication);
+                        return;
                     }
+
+                    UserDetails userDetails =
+                            userDetailsService.loadUserByUsername(
+                                    user.getEmail()
+                            );
+
+                    UsernamePasswordAuthenticationToken authentication =
+                            new UsernamePasswordAuthenticationToken(
+                                    userDetails,
+                                    null,
+                                    userDetails.getAuthorities()
+                            );
+
+                    authentication.setDetails(
+                            new WebAuthenticationDetailsSource()
+                                    .buildDetails(request)
+                    );
+
+                    SecurityContextHolder.getContext()
+                            .setAuthentication(authentication);
 
                 } catch (RuntimeException exception) {
                     SecurityContextHolder.clearContext();
+                    response.sendError(
+                            HttpServletResponse.SC_UNAUTHORIZED
+                    );
+                    return;
                 }
             }
         }
